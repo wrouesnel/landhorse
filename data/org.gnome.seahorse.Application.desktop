@@ -1,0 +1,11 @@
+[Desktop Entry]
+# Compatibility entry: landhorse replaces Seahorse, so programs that launch Seahorse by its
+# desktop ID open landhorse instead. Hidden from menus to avoid a duplicate entry.
+Type=Application
+Name=Passwords and Keys
+Comment=Manage your passwords, keyrings, PGP and SSH keys
+Exec=landhorse
+Icon=io.github.wrouesnel.landhorse
+Terminal=false
+NoDisplay=true
+Categories=GTK;Utility;Security;

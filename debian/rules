@@ -1,0 +1,63 @@
+#!/usr/bin/make -f
+# landhorse is built from the vendored module tree in the source package (vendor/), as
+# its Go dependencies aren't all packaged. The build never touches the network.
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+include /usr/share/dpkg/pkg-info.mk
+include /usr/share/dpkg/buildflags.mk
+
+export DH_VERBOSE = 1
+export PATH := /usr/lib/go-1.24/bin:$(PATH)
+export GOTOOLCHAIN = local
+export GOFLAGS = -mod=vendor -trimpath -buildvcs=false
+export GOPROXY = off
+export GOCACHE = $(CURDIR)/debian/.cache/go-build
+export GOPATH = $(CURDIR)/debian/.cache/gopath
+export CGO_ENABLED = 1
+export CGO_CFLAGS = $(CFLAGS) $(CPPFLAGS)
+export CGO_CXXFLAGS = $(CXXFLAGS) $(CPPFLAGS)
+export CGO_LDFLAGS = $(LDFLAGS)
+
+PKG := github.com/wrouesnel/landhorse
+DEST := $(CURDIR)/debian/landhorse
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	# PIE, linked by the system linker with the hardening flags (RELRO, BIND_NOW).
+	go build -buildmode=pie \
+		-ldflags "-X $(PKG)/version.Version=$(DEB_VERSION_UPSTREAM) -linkmode=external -extldflags '$(LDFLAGS)'" \
+		-o debian/build/landhorse ./cmd/landhorse
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	# The tests make disposable GnuPG homes under a throwaway HOME.
+	mkdir -p debian/.cache/home
+	HOME=$(CURDIR)/debian/.cache/home go test ./pkg/...
+endif
+
+override_dh_auto_install:
+	install -D -m0755 debian/build/landhorse $(DEST)/usr/bin/landhorse
+	install -D -m0644 data/io.github.wrouesnel.landhorse.desktop \
+		$(DEST)/usr/share/applications/io.github.wrouesnel.landhorse.desktop
+	install -D -m0644 data/org.gnome.seahorse.Application.desktop \
+		$(DEST)/usr/share/applications/org.gnome.seahorse.Application.desktop
+	install -D -m0644 data/io.github.wrouesnel.landhorse.svg \
+		$(DEST)/usr/share/icons/hicolor/scalable/apps/io.github.wrouesnel.landhorse.svg
+	install -D -m0644 data/io.github.wrouesnel.landhorse.metainfo.xml \
+		$(DEST)/usr/share/metainfo/io.github.wrouesnel.landhorse.metainfo.xml
+	install -D -m0644 data/org.gnome.seahorse.gschema.xml \
+		$(DEST)/usr/share/glib-2.0/schemas/org.gnome.seahorse.gschema.xml
+	# Apache-2.0 requires vendored modules' NOTICE files to be passed on.
+	cd vendor && find . -name NOTICE -type f | while read -r notice; do \
+		install -D -m0644 "$$notice" "$(DEST)/usr/share/doc/landhorse/notices/$$notice"; \
+	done
+
+# dwz can't process Go's DWARF.
+override_dh_dwz:
+
+override_dh_auto_clean:
+	rm -rf debian/build debian/.cache

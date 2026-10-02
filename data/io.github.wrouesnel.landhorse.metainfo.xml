@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.wrouesnel.landhorse</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <name>Landhorse</name>
+  <summary>Manage your passwords, keyrings, PGP and SSH keys</summary>
+  <developer id="io.github.wrouesnel">
+    <name>Will Rouesnel</name>
+  </developer>
+  <description>
+    <p>
+      Landhorse is a replacement for GNOME's Passwords and Keys (Seahorse) with a
+      conventional desktop layout: a menu bar and labelled toolbar, and three panes showing
+      the type of thing, a sortable list of that type, and the details of the selection.
+    </p>
+    <ul>
+      <li>View, copy and delete passwords in your keyrings, and lock or unlock them</li>
+      <li>Browse GnuPG keys by private or public and by email address; import, export,
+        publish to keyservers and revoke them</li>
+      <li>See your OpenSSH keys, whether they are passphrase protected, and copy their
+        public keys</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.wrouesnel.landhorse.desktop</launchable>
+  <replaces>
+    <id>org.gnome.seahorse.Application</id>
+  </replaces>
+  <provides>
+    <binary>landhorse</binary>
+  </provides>
+  <categories>
+    <category>Utility</category>
+    <category>Security</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-10-03"/>
+  </releases>
+</component>

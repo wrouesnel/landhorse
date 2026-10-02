@@ -1378,3 +1378,37 @@ func Autogen() error {
 
 	return nil
 }
+
+// debianSeries are the Ubuntu releases packages are built for. Keep in step with RELEASES
+// in tools/debian/build.sh.
+//
+//nolint:gochecknoglobals
+var debianSeries = []string{"noble", "resolute"}
+
+// Deb builds Ubuntu source and binary packages for every supported release, in containers,
+// into release/deb/<series>/. See tools/debian/build.sh.
+func Deb() error {
+	for _, series := range debianSeries {
+		if err := DebSeries(series); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DebSeries builds Ubuntu source and binary packages for one release, e.g. "noble".
+func DebSeries(series string) error {
+	return sh.RunV(path.Join(curDir, "tools", "debian", "build.sh"), series)
+}
+
+// DebTest checks, in a container of each release, that the built package replaces seahorse
+// without breaking packages that depend on it. Run Deb first. See
+// tools/debian/install-test.sh.
+func DebTest() error {
+	for _, series := range debianSeries {
+		if err := sh.RunV(path.Join(curDir, "tools", "debian", "install-test.sh"), series); err != nil {
+			return err
+		}
+	}
+	return nil
+}

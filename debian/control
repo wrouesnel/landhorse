@@ -1,0 +1,43 @@
+Source: landhorse
+Section: gnome
+Priority: optional
+Maintainer: Will Rouesnel <wrouesnel@wrouesnel.com>
+Build-Depends: debhelper-compat (= 13),
+               golang-1.24-go,
+               libgtk-3-dev,
+               pkgconf,
+               dirmngr <!nocheck>,
+               gnupg <!nocheck>,
+               gpg-agent <!nocheck>,
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: landhorse
+Architecture: linux-any
+Depends: gnupg,
+         ${misc:Depends},
+         ${shlibs:Depends},
+Recommends: dirmngr,
+            gnome-keyring,
+            libglib2.0-bin,
+            openssh-client,
+# landhorse replaces Seahorse: it installs the seahorse command, a hidden
+# org.gnome.seahorse.Application desktop entry and Seahorse's GSettings schema, so the
+# packages that depend on seahorse (desktop metapackages, libreoffice-gnome,
+# openpgp-applet and others; gnome needs seahorse >= 3.36) keep working.
+Provides: seahorse (= 47.0),
+Conflicts: seahorse,
+Replaces: seahorse,
+Description: manage passwords, keyrings, PGP and SSH keys
+ Landhorse is a replacement for GNOME's Passwords and Keys (Seahorse) with a
+ conventional desktop layout: a menu bar and labelled toolbar over three panes,
+ showing the type of thing, a sortable list of that type, and the details of
+ the selected item.
+ .
+ It shows the passwords in your keyrings through the Secret Service (such as
+ gnome-keyring), your GnuPG keys grouped by private or public key and by email
+ address, and your OpenSSH keys. Keys can be imported, exported, published to
+ keyservers and revoked.
+ .
+ This package replaces seahorse, and provides the seahorse command for programs
+ that run it.

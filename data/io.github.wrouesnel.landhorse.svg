@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>landhorse</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a8a94"/>
+      <stop offset="1" stop-color="#185a61"/>
+    </linearGradient>
+    <linearGradient id="shoe" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6d365"/>
+      <stop offset="1" stop-color="#d99a1e"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tile)"/>
+  <!-- Horseshoe, open at the top for luck. -->
+  <path d="M38 28 V66 A26 26 0 0 0 90 66 V28" fill="none" stroke="#0f3e43" stroke-opacity="0.35"
+        stroke-width="18" stroke-linecap="round" transform="translate(0 3)"/>
+  <path d="M38 28 V66 A26 26 0 0 0 90 66 V28" fill="none" stroke="url(#shoe)"
+        stroke-width="16" stroke-linecap="round"/>
+  <g fill="#8a5a0b">
+    <circle cx="38" cy="38" r="2.6"/><circle cx="38" cy="54" r="2.6"/><circle cx="41" cy="74" r="2.6"/>
+    <circle cx="90" cy="38" r="2.6"/><circle cx="90" cy="54" r="2.6"/><circle cx="87" cy="74" r="2.6"/>
+  </g>
+  <!-- Keyhole inside the shoe. -->
+  <circle cx="64" cy="56" r="8.5" fill="#f4f1e8"/>
+  <path d="M59 60 L69 60 L72 80 L56 80 Z" fill="#f4f1e8"/>
+</svg>

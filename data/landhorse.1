@@ -1,0 +1,62 @@
+.TH LANDHORSE 1 "2026-10-03" "landhorse" "User Commands"
+.SH NAME
+landhorse \- manage passwords, keyrings, PGP and SSH keys
+.SH SYNOPSIS
+.B landhorse
+.RI [ options ]
+.RB [ run
+.RI [ \-\-category\fR=\fIKEY ]]
+.br
+.B landhorse
+.RI [ options ]
+.B list
+.SH DESCRIPTION
+.B landhorse
+is a graphical manager for the passwords stored in your keyrings (through the
+freedesktop.org Secret Service, such as gnome\-keyring), your GnuPG keys and your OpenSSH
+keys. It replaces GNOME's Passwords and Keys (Seahorse), and is also installed as
+.BR seahorse .
+.PP
+The window shows the type of thing on the left, a list of that type in the middle, and
+the details of the selected item on the right.
+.SH COMMANDS
+.TP
+.B run
+Open the window. This is the default.
+.B \-\-category
+selects a category on startup, by the key that
+.B list
+prints.
+.TP
+.B list
+Print every category and item to standard output, and exit. It only reads.
+.SH OPTIONS
+.TP
+.BI \-\-config\-file= FILE
+Read configuration from
+.I FILE
+instead of
+.IR ~/.config/landhorse/landhorse.yml .
+.TP
+.BI \-\-log\-level= LEVEL
+Logging level: debug, info, warn or error.
+.TP
+.B \-\-version
+Print the version and exit.
+.TP
+.B \-h\fR, \fB\-\-help
+Show all options.
+.SH FILES
+.TP
+.I ~/.config/landhorse/landhorse.yml
+Optional configuration. It can hide a backend, point at another GnuPG home or SSH
+directory, or set the keyservers used to publish and revoke keys. Without a keyserver
+setting, landhorse uses the same keyservers as Seahorse: the
+.B keyservers
+key of the
+.B org.gnome.crypto.pgp
+GSettings schema.
+.SH SEE ALSO
+.BR gpg (1),
+.BR ssh\-keygen (1),
+.BR secret\-tool (1)

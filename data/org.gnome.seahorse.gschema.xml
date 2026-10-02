@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Compatibility schema. landhorse replaces Seahorse, whose package installed this schema;
+  other programs (such as seahorse-daemon) may still open it, and GLib aborts a program
+  that opens a schema that isn't installed. landhorse itself doesn't use these keys.
+-->
+<schemalist>
+  <schema id="org.gnome.seahorse" path="/org/gnome/seahorse/">
+    <key name="server-auto-retrieve" type="b">
+      <default>false</default>
+      <summary>Automatically retrieve keys from keyservers</summary>
+    </key>
+    <key name="server-auto-publish" type="b">
+      <default>false</default>
+      <summary>Automatically publish changed keys to a keyserver</summary>
+    </key>
+    <key name="server-publish-to" type="s">
+      <default>''</default>
+      <summary>Keyserver to publish keys to</summary>
+    </key>
+    <key name="last-search-text" type="s">
+      <default>''</default>
+      <summary>Text of the last keyserver search</summary>
+    </key>
+    <key name="last-search-servers" type="as">
+      <default>[]</default>
+      <summary>Keyservers used for the last search</summary>
+    </key>
+  </schema>
+</schemalist>

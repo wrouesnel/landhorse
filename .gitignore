@@ -22,3 +22,6 @@
 # Optional web interface
 /web/node_modules/
 /web/dist/
+
+# Vendored modules, generated for Debian source packages by tools/debian/build.sh
+/vendor/

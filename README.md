@@ -17,14 +17,25 @@ conventional desktop layout:
 | Type tree | Source | Actions |
 |---|---|---|
 | Passwords → each keyring | The Secret Service D-Bus API (gnome-keyring, KeePassXC) | Show and copy passwords, delete, lock and unlock keyrings |
-| PGP Keys → GnuPG keys | The `gpg` command (`--with-colons`) | Copy or export public keys, import keys, delete |
-| Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy or export public keys, delete key pairs |
+| PGP Keys → GnuPG keys → Private keys / Public keys → each email address | The `gpg` command (`--with-colons`) | Copy, export or publish public keys, import, revoke, delete |
+| Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, delete key pairs |
 
-Showing or copying a password from a locked keyring brings up the system unlock prompt.
-Every delete asks for confirmation and says exactly what will be removed.
+Every field in the detail view has a copy button. Showing or copying a password from a
+locked keyring brings up the system unlock prompt. Every delete asks for confirmation and
+says exactly what will be removed.
 
-Not done yet: creating passwords, keyrings and keys; editing; trust and signing; keyservers;
-certificates (PKCS#11).
+**Keyservers.** "Publish…" uploads a public key to a keyserver. By default landhorse uses
+the same keyservers as Seahorse (the `org.gnome.crypto.pgp` `keyservers` setting, which
+Ubuntu sets to `hkps://keyserver.ubuntu.com`); set `pgp.keyservers` to change them.
+
+**Revoking.** "Revoke…" in a key's right-click menu revokes it with a revocation
+certificate (choose a file, drop one, or paste it), which is checked against the key before
+anything changes. If the key's secret part is here, a certificate can be generated instead,
+after two confirmations. Revocations are always published, so a keyserver must be
+configured.
+
+Not done yet: creating passwords, keyrings and keys; editing; trust and signing; keyserver
+search; certificates (PKCS#11).
 
 ## Building
 
@@ -37,6 +48,27 @@ go run mage.go binary
 ```
 
 The first build compiles the GTK bindings and takes a couple of minutes.
+
+## Ubuntu packages
+
+```sh
+go run mage.go deb                 # all supported releases
+go run mage.go debSeries noble     # one release: noble (24.04) or resolute (26.04)
+```
+
+This builds source and binary packages in podman containers of each release, runs the
+tests and lintian, and writes them to `release/deb/<series>/`. `go run mage.go debTest`
+then checks that installing the package replaces seahorse cleanly. The `landhorse` package
+replaces `seahorse`: installing it removes seahorse, and it provides the `seahorse` command
+and package so that desktop metapackages, LibreOffice and other packages that depend on
+seahorse stay installed and working.
+
+To publish to a Launchpad PPA, sign and upload each release's source package:
+
+```sh
+debsign -k<fingerprint> release/deb/noble/*_source.changes
+dput ppa:<you>/<ppa> release/deb/noble/*_source.changes
+```
 
 ## Usage
 

@@ -1,6 +1,6 @@
 module github.com/wrouesnel/landhorse
 
-go 1.27.1
+go 1.24.1
 
 require (
 	github.com/alecthomas/kong v1.16.1
@@ -15,11 +15,11 @@ require (
 	github.com/spf13/afero v1.15.0
 	github.com/wrouesnel/ctxstdio v0.0.0-20260925000958-306c83092f60
 	github.com/wrouesnel/go.logutil v0.0.0-20260831004131-2c91cc3e879a
-	github.com/wrouesnel/kongutil v0.0.0-20260819130755-29108a76e5f7
+	github.com/wrouesnel/kongutil v0.0.0-20261002155125-2b34e3bf1495
 	go.uber.org/zap v1.28.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
-	golang.org/x/crypto v0.57.0
-	golang.org/x/mod v0.41.0
+	golang.org/x/crypto v0.48.0
+	golang.org/x/mod v0.33.0
 )
 
 require (
@@ -32,10 +32,10 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/ulikunitz/xz v0.5.17 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	github.com/yuseferi/zax/v2 v2.5.0 // indirect
+	github.com/yuseferi/zax/v2 v2.3.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 )
 
 replace go.yaml.in/yaml/v4 => github.com/wrouesnel/yaml.go-yaml/v4 v4.0.0-20260918015114-84d82f5038cd

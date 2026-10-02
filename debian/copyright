@@ -1,0 +1,276 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: landhorse
+Upstream-Contact: Will Rouesnel <wrouesnel@wrouesnel.com>
+Comment: The binary links github.com/yuseferi/zax/v2, which is GPL-3, so the
+ combined work is distributed under GPL-3 (landhorse's own code is GPL-2+).
+
+Files: *
+Copyright: 2026 Will Rouesnel <wrouesnel@wrouesnel.com>
+License: GPL-2+
+
+Files: vendor/github.com/alecthomas/kong/*
+Copyright: 2018 Alec Thomas
+License: Expat
+
+Files: vendor/github.com/chigopher/pathlib/*
+Copyright: the github.com/chigopher/pathlib authors
+License: Apache-2.0
+
+Files: vendor/github.com/dsnet/compress/*
+Copyright: 2015, Joe Tsai and The Go Authors.
+License: BSD-3-clause
+
+Files: vendor/github.com/goccy/go-yaml/*
+Copyright: 2019 Masaaki Goshima
+License: Expat
+
+Files: vendor/github.com/godbus/dbus/v5/*
+Copyright: 2013, Georg Reinke (<guelfey at gmail dot com>), Google
+License: BSD-2-clause
+
+Files: vendor/github.com/golang/snappy/*
+Copyright: 2011 The Snappy-Go Authors.
+License: BSD-3-clause
+
+Files: vendor/github.com/gotk3/gotk3/*
+Copyright: 2013-2014 Conformal Systems LLC
+ 2015-2018 gotk3 contributors
+License: ISC
+
+Files: vendor/github.com/integralist/go-findroot/*
+Copyright: 2016 Mark McDonnell
+License: Expat
+
+Files: vendor/github.com/magefile/mage/*
+Copyright: 2017 the Mage authors
+License: Apache-2.0
+
+Files: vendor/github.com/mholt/archiver/*
+Copyright: 2016 Matthew Holt
+License: Expat
+
+Files: vendor/github.com/nwaples/rardecode/*
+Copyright: 2015, Nicholas Waples
+License: BSD-2-clause
+
+Files: vendor/github.com/pelletier/go-toml/v2/*
+Copyright: 2021 - 2023 Thomas Pelletier
+License: Expat
+
+Files: vendor/github.com/pierrec/lz4/*
+Copyright: 2015, Pierre Curto
+License: BSD-3-clause
+
+Files: vendor/github.com/pkg/errors/*
+Copyright: 2015, Dave Cheney <dave@cheney.net>
+License: BSD-2-clause
+
+Files: vendor/github.com/samber/lo/*
+Copyright: 2022-2025 Samuel Berthe
+License: Expat
+
+Files: vendor/github.com/spf13/afero/*
+Copyright: the github.com/spf13/afero authors
+License: Apache-2.0
+
+Files: vendor/github.com/ulikunitz/xz/*
+Copyright: 2014-2022  Ulrich Kunitz
+License: BSD-3-clause
+
+Files: vendor/github.com/wrouesnel/ctxstdio/*
+Copyright: 2025 Will Rouesnel
+License: Expat
+
+Files: vendor/github.com/wrouesnel/go.logutil/*
+Copyright: 2026 Will Rouesnel
+License: Expat
+
+Files: vendor/github.com/wrouesnel/kongutil/*
+Copyright: Will Rouesnel
+License: missing
+Comment: Upstream has no license file. It is by the same author as landhorse; a license needs to be added upstream before this package is distributed.
+
+Files: vendor/github.com/xi2/xz/*
+Copyright: the github.com/xi2/xz authors
+License: public-domain
+
+Files: vendor/github.com/yuseferi/zax/v2/*
+Copyright: 2007 Free Software Foundation, Inc. <https://fsf.org/>
+License: GPL-3
+
+Files: vendor/go.uber.org/multierr/*
+Copyright: 2017-2021 Uber Technologies, Inc
+License: Expat
+
+Files: vendor/go.uber.org/zap/*
+Copyright: 2016-2024 Uber Technologies, Inc
+License: Expat
+
+Files: vendor/go.yaml.in/yaml/v4/*
+Copyright: 2025 - The go-yaml Project Contributors
+License: Apache-2.0
+
+Files: vendor/golang.org/x/crypto/*
+Copyright: 2009 The Go Authors
+License: BSD-3-clause
+
+Files: vendor/golang.org/x/mod/*
+Copyright: 2009 The Go Authors
+License: BSD-3-clause
+
+Files: vendor/golang.org/x/sys/*
+Copyright: 2009 The Go Authors
+License: BSD-3-clause
+
+Files: vendor/golang.org/x/text/*
+Copyright: 2009 The Go Authors
+License: BSD-3-clause
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ use this file except in compliance with the License.
+ .
+ On Debian systems, the complete text of the Apache License, Version 2.0 can be
+ found in "/usr/share/common-licenses/Apache-2.0".
+
+License: BSD-2-clause
+ Copyright (c) 2013, Georg Reinke (<guelfey at gmail dot com>), Google
+ All rights reserved.
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ .
+ 1. Redistributions of source code must retain the above copyright notice,
+ this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ .
+ The text above is from github.com/godbus/dbus/v5.
+
+License: BSD-3-clause
+ Copyright © 2015, Joe Tsai and The Go Authors. All rights reserved.
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ .
+ * Redistributions of source code must retain the above copyright notice, this
+ list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright notice,
+ this list of conditions and the following disclaimer in the documentation and/or
+ other materials provided with the distribution.
+ * Neither the copyright holder nor the names of its contributors may be used to
+ endorse or promote products derived from this software without specific prior
+ written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+ DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ .
+ The text above is from github.com/dsnet/compress.
+
+License: Expat
+ Copyright (C) 2018 Alec Thomas
+ .
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+ the Software without restriction, including without limitation the rights to
+ use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ of the Software, and to permit persons to whom the Software is furnished to do
+ so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ .
+ The text above is from github.com/alecthomas/kong.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the Free
+ Software Foundation; either version 2 of the License, or (at your option) any
+ later version.
+ .
+ On Debian systems, the complete text of the GNU General Public License version 2
+ can be found in "/usr/share/common-licenses/GPL-2".
+
+License: GPL-3
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License version 3 as published by the
+ Free Software Foundation.
+ .
+ On Debian systems, the complete text of the GNU General Public License version 3
+ can be found in "/usr/share/common-licenses/GPL-3".
+
+License: ISC
+ ISC License
+ .
+ Copyright (c) 2013-2014 Conformal Systems LLC.
+ Copyright (c) 2015-2018 gotk3 contributors
+ .
+ Permission to use, copy, modify, and/or distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ .
+ The text above is from github.com/gotk3/gotk3.
+
+License: missing
+ No license has been published for this module. See the Comment field.
+
+License: public-domain
+ Licensing of github.com/xi2/xz
+ ==============================
+ .
+     This Go package is a modified version of
+ .
+         XZ Embedded  <http://tukaani.org/xz/embedded.html>
+ .
+     The contents of the testdata directory are modified versions of
+     the test files from
+ .
+         XZ Utils  <http://tukaani.org/xz/>
+ .
+     All the files in this package have been written by Michael Cross,
+     Lasse Collin and/or Igor PavLov. All these files have been put
+     into the public domain. You can do whatever you want with these
+     files.
+ .
+     This software is provided "as is", without any warranty.
+ .
+ The text above is from github.com/xi2/xz.
