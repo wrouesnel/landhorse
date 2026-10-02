@@ -513,7 +513,7 @@ func (a *App) actionAbout() {
 	dlg.SetProgramName(version.Name)
 	dlg.SetVersion(version.Version)
 	dlg.SetComments(version.Description)
-	dlg.SetLogoIconName("seahorse")
+	dlg.SetLogoIconName(version.AppID)
 	dlg.SetLicenseType(gtk.LICENSE_GPL_2_0)
 	dlg.Run()
 	dlg.Destroy()

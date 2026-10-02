@@ -52,11 +52,28 @@ type App struct {
 
 	status        *gtk.Statusbar
 	statusContext uint
+
+	// related indexes items across backends for the detail view's Related Items.
+	related           *relatedIndex
+	relatedGeneration int
 }
 
 // Run shows the window and runs the GTK main loop until the window is closed or ctx is
 // cancelled. It must be called from the main goroutine.
 func Run(ctx context.Context, opts Options) error {
+	// The program name becomes the Wayland app ID and X11 WM_CLASS, which desktops match
+	// against the .desktop file name to find the icon and group windows.
+	glib.SetPrgname(version.AppID)
+	glib.SetApplicationName("Passwords and Keys")
+
+	// gotk3 releases GObjects from Go's finalizer goroutine by default, but GTK isn't thread
+	// safe: dropping the last reference to a widget, such as a confirmation dialog that was
+	// just destroyed, runs its dispose and finalize on that goroutine while the main loop is
+	// busy, which crashed landhorse after deleting a password. Release them on the main loop.
+	glib.FinalizerStrategy = func(f glib.Finalizer) {
+		glib.IdleAdd(func() { f() })
+	}
+
 	gtk.Init(nil)
 
 	installCSS()
@@ -103,7 +120,7 @@ func (a *App) build() error {
 	}
 	a.window = win
 	win.SetTitle("Passwords and Keys — " + version.Name)
-	win.SetIconName("seahorse")
+	win.SetIconName(version.AppID)
 	win.SetDefaultSize(1180, 720)
 	win.Connect("destroy", gtk.MainQuit)
 

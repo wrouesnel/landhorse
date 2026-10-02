@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"html"
+	"strings"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -20,6 +21,10 @@ type detailView struct {
 	box    *gtk.Box
 	// generation discards details that arrive after the selection moved on.
 	generation int
+	// item is the item on show, and relatedBox holds its Related Items, filled in by
+	// fillRelated once the related items index is ready.
+	item       backend.Item
+	relatedBox *gtk.Box
 }
 
 func newDetailView(app *App) (*detailView, error) {
@@ -50,6 +55,7 @@ func newDetailView(app *App) (*detailView, error) {
 func (d *detailView) widget() gtk.IWidget { return d.scroll }
 
 func (d *detailView) clear() {
+	d.relatedBox = nil
 	d.box.GetChildren().Foreach(func(item interface{}) {
 		if w, ok := item.(gtk.IWidget); ok {
 			w.ToWidget().Destroy()
@@ -81,6 +87,7 @@ func (d *detailView) showMessage(title, text string) {
 
 // show loads and displays item's details.
 func (d *detailView) show(item backend.Item) {
+	d.item = item
 	if item == nil {
 		d.showMessage("", "Select an item to see its details.")
 		return
@@ -129,10 +136,18 @@ func (d *detailView) render(detail *backend.Detail) {
 	header.PackStart(titles, true, true, 0)
 	d.box.PackStart(header, false, false, 0)
 
-	for _, section := range detail.Sections {
+	for i, section := range detail.Sections {
 		d.box.PackStart(d.renderSection(section), false, false, 0)
+		// Related items go after the first section, where they're seen without scrolling
+		// past long values such as public keys.
+		if _, ok := d.item.(backend.Linkable); ok && i == 0 {
+			d.relatedBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 6)
+			d.relatedBox.SetMarginTop(12)
+			d.box.PackStart(d.relatedBox, false, false, 0)
+		}
 	}
 	d.box.ShowAll()
+	d.fillRelated()
 }
 
 func (d *detailView) renderSection(section backend.Section) gtk.IWidget {
@@ -152,9 +167,6 @@ func (d *detailView) renderSection(section backend.Section) gtk.IWidget {
 			label := newLabel(f.Label)
 			label.SetXAlign(1)
 			label.SetYAlign(0)
-			if f.Reveal != nil {
-				label.SetYAlign(0.5)
-			}
 			addClass(label, "dim-label")
 			grid.Attach(label, 0, row, 1, 1)
 			grid.Attach(d.renderValue(f), 1, row, 1, 1)
@@ -168,8 +180,8 @@ func (d *detailView) renderSection(section backend.Section) gtk.IWidget {
 	return box
 }
 
-// renderValue renders a field's value. Secret fields start masked, with a Show button
-// that fetches the secret.
+// renderValue renders a field's value. Secret fields start masked, with an eye button that
+// fetches and shows the secret, and hides it again.
 func (d *detailView) renderValue(f backend.Field) gtk.IWidget {
 	value := newLabel(f.Value)
 	value.SetSelectable(true)
@@ -195,24 +207,37 @@ func (d *detailView) renderValue(f backend.Field) gtk.IWidget {
 
 	value.SetText(secretMask)
 	value.SetSelectable(false)
+	value.SetVAlign(gtk.ALIGN_START)
 
 	row, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 6)
 	row.PackStart(value, true, true, 0)
 
-	toggle, _ := gtk.ToggleButtonNewWithLabel("Show")
+	// A compact icon toggle, the same size as the copy button, so the row is no taller than
+	// the others and nothing moves when it's clicked.
+	eye, _ := gtk.ImageNewFromIconName("view-reveal-symbolic", gtk.ICON_SIZE_MENU)
+	toggle, _ := gtk.ToggleButtonNew()
+	toggle.SetImage(eye)
+	toggle.SetRelief(gtk.RELIEF_NONE)
 	toggle.SetVAlign(gtk.ALIGN_START)
-	// The secret is fetched on each Show and dropped on Hide, so it isn't kept in the
+	toggle.SetTooltipText("Show " + strings.ToLower(f.Label))
+	addClass(toggle, "copy-button")
+	showHidden := func() {
+		value.SetText(secretMask)
+		value.SetSelectable(false)
+		eye.SetFromIconName("view-reveal-symbolic", gtk.ICON_SIZE_MENU)
+		toggle.SetTooltipText("Show " + strings.ToLower(f.Label))
+	}
+	// The secret is fetched on each reveal and dropped on hide, so it isn't kept in the
 	// widget tree while hidden.
 	gen := d.generation
 	lockable, _ := d.app.selectedCategory().(backend.Lockable)
 	toggle.Connect("toggled", func() {
 		if !toggle.GetActive() {
-			value.SetText(secretMask)
-			value.SetSelectable(false)
-			toggle.SetLabel("Show")
+			showHidden()
 			return
 		}
-		toggle.SetLabel("Hide")
+		eye.SetFromIconName("view-conceal-symbolic", gtk.ICON_SIZE_MENU)
+		toggle.SetTooltipText("Hide " + strings.ToLower(f.Label))
 		wasLocked := lockable != nil && lockable.Locked()
 		d.app.background(func(ctx context.Context) func() {
 			secret, err := f.Reveal(ctx)

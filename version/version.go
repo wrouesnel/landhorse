@@ -5,6 +5,9 @@ package version
 // Name is the overall name of the application at the Git repository level.
 const Name = "landhorse"
 
+// AppID is the reverse-DNS application ID, used for the desktop file, icon and metainfo.
+const AppID = "io.github.wrouesnel.landhorse"
+
 // Description is an overall description of its function.
 const Description = `A conventional three-pane manager for passwords, keyrings, PGP and SSH keys`
 

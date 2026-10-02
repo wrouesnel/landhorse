@@ -43,6 +43,21 @@ type Parent interface {
 	Children() []Category
 }
 
+// Linkable is implemented by items that can be related to items elsewhere, which the detail
+// view lists under Related Items. Two items are related when they report a common link key:
+// for example a saved passphrase and the PGP key it unlocks both report
+// "gpg-keygrip:<keygrip>". Keys are opaque strings; backends agree on their prefixes:
+//
+//	gpg-fpr:<FINGERPRINT>      a PGP primary key or subkey fingerprint, upper case hex
+//	gpg-keygrip:<KEYGRIP>      a PGP key or subkey keygrip, upper case hex
+//	ssh-private-key:<path>     the absolute path of an SSH private key file
+type Linkable interface {
+	Item
+	LinkKeys() []string
+	// LinkDescription says what the item is when listed as related, e.g. "PGP key".
+	LinkDescription() string
+}
+
 // Column describes one column of the middle list.
 type Column struct {
 	Title string

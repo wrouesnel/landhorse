@@ -191,6 +191,45 @@ func (t *typeTree) populate(results []groupResult) {
 	t.loading = false
 	t.current = stringAt(t.store.ToTreeModel(), target, typeColKey)
 	t.app.onCategorySelected(t.selected())
+	t.app.rebuildRelated()
+}
+
+// topCategories returns the categories directly under each group.
+func (t *typeTree) topCategories() []backend.Category {
+	var result []backend.Category
+	model := t.store.ToTreeModel()
+	for group, ok := model.GetIterFirst(); ok; ok = model.IterNext(group) {
+		var child gtk.TreeIter
+		for ok := model.IterChildren(group, &child); ok; ok = model.IterNext(&child) {
+			if cat, found := t.categories[stringAt(model, &child, typeColKey)]; found {
+				result = append(result, cat)
+			}
+		}
+	}
+	return result
+}
+
+// selectKey selects the category with key, expanding the tree to show it. It returns false
+// if there is no such category.
+func (t *typeTree) selectKey(key string) bool {
+	var target *gtk.TreePath
+	model := t.store.ToTreeModel()
+	t.walk(func(iter *gtk.TreeIter, path *gtk.TreePath) {
+		if target == nil && stringAt(model, iter, typeColKey) == key {
+			target, _ = path.Copy()
+		}
+	})
+	if target == nil {
+		return false
+	}
+	if key == t.current {
+		// Selecting it again wouldn't change anything, so select the item directly.
+		t.app.list.selectWanted()
+		return true
+	}
+	t.view.ExpandToPath(target)
+	t.view.SetCursor(target, nil, false)
+	return true
 }
 
 // nodeID identifies a row for remembering its expansion: the category key, or the group

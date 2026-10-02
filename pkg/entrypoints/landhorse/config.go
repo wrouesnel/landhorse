@@ -52,7 +52,9 @@ type PGPConfig struct {
 	// Home overrides GNUPGHOME.
 	Home string `yaml:"home"`
 	// Keyservers are offered when publishing keys, each a URI optionally followed by a space
-	// and a display name. Unset means Seahorse's defaults; an empty list disables publishing.
+	// and a display name. Unset means the keyservers Seahorse uses on this system (gcr's
+	// org.gnome.crypto.pgp keyservers setting), falling back to upstream Seahorse's
+	// defaults; an empty list disables publishing.
 	Keyservers []string `yaml:"keyservers"`
 }
 

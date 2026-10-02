@@ -73,5 +73,19 @@ ssh-keygen -q -t ecdsa -N '' -C deploy@ci -f "$STATE/deploy"
 mv "$STATE/deploy.pub" "$HOME/.ssh/deploy.pub"; rm -f "$STATE/deploy"
 cp "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/authorized_keys"
 
+# Passwords related to the keys above, stored the way gpg-agent and gnome-keyring's SSH
+# agent store them, so the detail view lists them under Related Items.
+pat_grip=$(gpg --with-colons --with-keygrip --list-secret-keys pat@example.com | awk -F: '/^grp/{print $10; exit}')
+printf sandbox | secret-tool store --label="GnuPG: n/$pat_grip" \
+    xdg:schema org.gnupg.Passphrase keygrip "n/$pat_grip" stored-by "GnuPG Pinentry"
+printf pw | secret-tool store --label="Unlock password for: alice@work" \
+    unique "ssh-store:$HOME/.ssh/work_rsa"
+# More network passwords, so they group by host.
+printf 'imap-pass' | secret-tool store --label="alice@mail.example.com (IMAP)" \
+    xdg:schema org.gnome.keyring.NetworkPassword server mail.example.com protocol imap user alice
+printf 'smtp-pass' | secret-tool store --label="alice@mail.example.com (SMTP)" \
+    xdg:schema org.gnome.keyring.NetworkPassword server mail.example.com protocol smtp user alice
+printf 'vault-token' | secret-tool store --label="Vault token" service "https://vault.example.net:8200/"
+
 touch "$STATE/ready"
 exec "$@"

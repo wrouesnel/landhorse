@@ -31,7 +31,7 @@ func (r *RunCmd) Run(ctx context.Context, cli *CLIConfig, config *EntrypointConf
 	l := logutil.FromCtx(ctx)
 	fs := afero.NewOsFs()
 
-	groups, closeGroups, err := buildGroups(config, fs)
+	groups, closeGroups, err := buildGroups(ctx, config, fs)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ type ListCmd struct{}
 // skipped so the others still print; the command then fails.
 func (c *ListCmd) Run(ctx context.Context, config *EntrypointConfig) error {
 	out := ctxstdio.StdOut(ctx)
-	groups, closeGroups, err := buildGroups(config, afero.NewOsFs())
+	groups, closeGroups, err := buildGroups(ctx, config, afero.NewOsFs())
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func listCategory(ctx context.Context, out io.Writer, cat backend.Category, dept
 }
 
 // buildGroups creates the enabled backends. The returned function releases them.
-func buildGroups(config *EntrypointConfig, fs afero.Fs) ([]backend.Group, func(), error) {
+func buildGroups(ctx context.Context, config *EntrypointConfig, fs afero.Fs) ([]backend.Group, func(), error) {
 	var groups []backend.Group
 	var closers []func() error
 
@@ -117,9 +117,14 @@ func buildGroups(config *EntrypointConfig, fs afero.Fs) ([]backend.Group, func()
 	}
 
 	if !config.PGP.Disabled {
+		// Unset means whatever Seahorse uses on this system, or upstream Seahorse's defaults.
 		keyservers := config.PGP.Keyservers
 		if keyservers == nil {
-			keyservers = pgp.DefaultKeyservers
+			if system, ok := pgp.SystemKeyservers(ctx); ok {
+				keyservers = system
+			} else {
+				keyservers = pgp.DefaultKeyservers
+			}
 		}
 		groups = append(groups, &pgp.Group{GPG: &pgp.GPG{
 			Binary:     config.PGP.Binary,

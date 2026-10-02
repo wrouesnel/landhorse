@@ -28,6 +28,7 @@ var schemaNames = map[string]string{
 	"org.gnome.Epiphany.FormPassword":           "Web password",
 	"org.gnome.OnlineAccounts":                  "Online account",
 	"org.gnome.Evolution.Data.Source":           "Mail and calendar password",
+	"org.gnupg.Passphrase":                      "GnuPG passphrase",
 }
 
 // SchemaName returns a readable name for an item's schema.
@@ -80,8 +81,9 @@ func (g *Group) Title() string { return "Passwords" }
 // IconName implements backend.Group.
 func (g *Group) IconName() string { return "dialog-password" }
 
-// Categories implements backend.Group.
-func (g *Group) Categories(_ context.Context) ([]backend.Category, error) {
+// Categories implements backend.Group. Each keyring's items are read to infer its
+// subcategories (see inferCategories).
+func (g *Group) Categories(ctx context.Context) ([]backend.Category, error) {
 	client, err := g.getClient()
 	if err != nil {
 		return nil, err
@@ -111,29 +113,49 @@ func (g *Group) Categories(_ context.Context) ([]backend.Category, error) {
 
 	result := make([]backend.Category, 0, len(cols))
 	for _, col := range cols {
-		result = append(result, &Keyring{client: client, collection: col})
+		k := &Keyring{client: client, collection: col}
+		items, err := k.passwordItems(ctx)
+		if err != nil {
+			return nil, err
+		}
+		k.children = inferCategories(k, items)
+		result = append(result, k)
 	}
 	return result, nil
 }
 
 // Keyring is a collection in the type tree.
 type Keyring struct {
-	client     *Client
+	client *Client
+	// mu guards collection, which is refreshed by Items from background goroutines while
+	// the user interface reads its title and lock state.
+	mu         sync.RWMutex
 	collection *Collection
+	children   []backend.Category
 }
 
-var _ backend.Lockable = (*Keyring)(nil)
+var (
+	_ backend.Lockable = (*Keyring)(nil)
+	_ backend.Parent   = (*Keyring)(nil)
+)
+
+func (c *Keyring) current() *Collection {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.collection
+}
 
 // Key implements backend.Category.
-func (c *Keyring) Key() string { return "secret:" + string(c.collection.Path) }
+func (c *Keyring) Key() string { return "secret:" + string(c.current().Path) }
 
 // Title implements backend.Category.
 func (c *Keyring) Title() string {
-	title := c.collection.Label
+	col := c.current()
+	title := col.Label
 	if title == "" {
-		title = string(c.collection.Path[strings.LastIndex(string(c.collection.Path), "/")+1:])
+		title = string(col.Path[strings.LastIndex(string(col.Path), "/")+1:])
 	}
-	if c.collection.Default {
+	if col.Default {
 		title += " (default)"
 	}
 	return title
@@ -141,11 +163,14 @@ func (c *Keyring) Title() string {
 
 // IconName implements backend.Category.
 func (c *Keyring) IconName() string {
-	if c.collection.Locked {
+	if c.current().Locked {
 		return "changes-prevent"
 	}
 	return "changes-allow"
 }
+
+// Children implements backend.Parent.
+func (c *Keyring) Children() []backend.Category { return c.children }
 
 // Columns implements backend.Category.
 func (c *Keyring) Columns() []backend.Column {
@@ -158,16 +183,32 @@ func (c *Keyring) Columns() []backend.Column {
 
 // Items implements backend.Category. A locked keyring still lists its items, but their
 // secrets can't be read until it is unlocked.
-func (c *Keyring) Items(_ context.Context) ([]backend.Item, error) {
-	// Re-read the collection so the item list and lock state are current.
-	col, err := c.client.Collection(c.collection.Path)
+func (c *Keyring) Items(ctx context.Context) ([]backend.Item, error) {
+	items, err := c.passwordItems(ctx)
 	if err != nil {
 		return nil, err
 	}
-	col.Default = c.collection.Default
-	c.collection = col
+	result := make([]backend.Item, len(items))
+	for i, item := range items {
+		result[i] = item
+	}
+	return result, nil
+}
 
-	items := make([]backend.Item, 0, len(col.Items))
+// passwordItems re-reads the collection, so the item list and lock state are current, and
+// its items.
+func (c *Keyring) passwordItems(_ context.Context) ([]*PasswordItem, error) {
+	old := c.current()
+	col, err := c.client.Collection(old.Path)
+	if err != nil {
+		return nil, err
+	}
+	col.Default = old.Default
+	c.mu.Lock()
+	c.collection = col
+	c.mu.Unlock()
+
+	items := make([]*PasswordItem, 0, len(col.Items))
 	for _, p := range col.Items {
 		item, err := c.client.Item(p)
 		if err != nil {
@@ -178,17 +219,26 @@ func (c *Keyring) Items(_ context.Context) ([]backend.Item, error) {
 	return items, nil
 }
 
+// setLocked records a lock state change made by this client.
+func (c *Keyring) setLocked(locked bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	updated := *c.collection
+	updated.Locked = locked
+	c.collection = &updated
+}
+
 // Locked implements backend.Lockable.
-func (c *Keyring) Locked() bool { return c.collection.Locked }
+func (c *Keyring) Locked() bool { return c.current().Locked }
 
 // Lock implements backend.Lockable.
 func (c *Keyring) Lock(ctx context.Context) error {
-	return c.client.Lock(ctx, c.collection.Path)
+	return c.client.Lock(ctx, c.current().Path)
 }
 
 // Unlock implements backend.Lockable.
 func (c *Keyring) Unlock(ctx context.Context) error {
-	return c.client.Unlock(ctx, c.collection.Path)
+	return c.client.Unlock(ctx, c.current().Path)
 }
 
 // PasswordItem is a stored password in the middle list.
@@ -271,10 +321,11 @@ func (i *PasswordItem) Detail(_ context.Context) (*backend.Detail, error) {
 func (i *PasswordItem) reveal(ctx context.Context) (string, error) {
 	value, err := i.client.Secret(i.item.Path)
 	if errors.Is(err, ErrLocked) {
-		if err := i.client.Unlock(ctx, i.keyring.collection.Path); err != nil {
-			return "", fmt.Errorf("unlocking %q: %w", i.keyring.collection.Label, err)
+		col := i.keyring.current()
+		if err := i.client.Unlock(ctx, col.Path); err != nil {
+			return "", fmt.Errorf("unlocking %q: %w", col.Label, err)
 		}
-		i.keyring.collection.Locked = false
+		i.keyring.setLocked(false)
 		value, err = i.client.Secret(i.item.Path)
 	}
 	return string(value), err
@@ -291,7 +342,7 @@ func (i *PasswordItem) CopyText(ctx context.Context) (string, error) {
 // DeleteWarning implements backend.Deleter.
 func (i *PasswordItem) DeleteWarning() string {
 	return fmt.Sprintf("The password %q will be permanently deleted from the %q keyring.",
-		i.title(), i.keyring.collection.Label)
+		i.title(), i.keyring.current().Label)
 }
 
 // Delete implements backend.Deleter.

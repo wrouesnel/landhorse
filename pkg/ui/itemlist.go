@@ -37,6 +37,9 @@ type itemList struct {
 	ranks    map[int]func(string) int
 	// current is the selected item's key, kept across reloads.
 	current string
+	// want is the key of an item to select once the next category loads, set when
+	// navigating to a related item.
+	want string
 	// generation discards results of loads that were superseded while running.
 	generation int
 	loading    bool
@@ -121,8 +124,11 @@ func (l *itemList) load(cat backend.Category) {
 	gen := l.generation
 
 	if cat == nil || l.category == nil || cat.Key() != l.category.Key() {
-		l.current = ""
+		// A new category. Replacing the model clears the selection (and l.current with it),
+		// so choose the item to select, the one navigated to if any, afterwards.
 		l.setColumns(cat)
+		l.current = l.want
+		l.want = ""
 	}
 	l.category = cat
 	if cat == nil {
@@ -153,6 +159,18 @@ func (l *itemList) load(cat backend.Category) {
 // reload refreshes the current category in place.
 func (l *itemList) reload() {
 	l.load(l.category)
+	// Whatever changed may have changed what's related to what.
+	l.app.rebuildRelated()
+}
+
+// selectWanted selects the item navigated to within the category already on show.
+func (l *itemList) selectWanted() {
+	if l.want == "" {
+		return
+	}
+	l.current = l.want
+	l.want = ""
+	l.reselect()
 }
 
 // setColumns rebuilds the store and columns for cat.

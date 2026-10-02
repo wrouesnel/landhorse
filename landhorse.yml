@@ -13,11 +13,14 @@ pgp:
   binary: gpg
   # Overrides GNUPGHOME when set.
   home: ""
-  # Keyservers offered by "Publish…", each a URI optionally followed by a space and a
-  # display name. These are Seahorse's defaults; an empty list ([]) disables publishing.
-  keyservers:
-    - ldap://keyserver.pgp.com
-    - hkps://keys.openpgp.org
+  # Keyservers offered by "Publish…" and "Revoke…", each a URI optionally followed by a
+  # space and a display name. When unset, landhorse uses the same keyservers as Seahorse:
+  # the org.gnome.crypto.pgp keyservers setting (Ubuntu sets hkps://keyserver.ubuntu.com),
+  # or upstream Seahorse's defaults below if that setting doesn't exist. An empty list ([])
+  # disables publishing.
+  # keyservers:
+  #   - ldap://keyserver.pgp.com
+  #   - hkps://keys.openpgp.org
 
 ssh:
   disabled: false

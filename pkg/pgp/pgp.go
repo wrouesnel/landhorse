@@ -522,3 +522,26 @@ func (i *Item) PublishWarning() string {
 func (i *Item) Publish(ctx context.Context, target string) (string, error) {
 	return i.GPG.SendKey(ctx, target, i.PGPKey.Fingerprint)
 }
+
+var _ backend.Linkable = (*Item)(nil)
+
+// LinkKeys implements backend.Linkable: the fingerprints and keygrips of the primary key and
+// its subkeys, which saved passphrases refer to.
+func (i *Item) LinkKeys() []string {
+	k := i.PGPKey
+	var keys []string
+	for _, sk := range append([]SubKey{k.SubKey}, k.SubKeys...) {
+		if sk.Fingerprint != "" {
+			keys = append(keys, "gpg-fpr:"+strings.ToUpper(sk.Fingerprint))
+		}
+		if sk.Keygrip != "" {
+			keys = append(keys, "gpg-keygrip:"+strings.ToUpper(sk.Keygrip))
+		}
+	}
+	return keys
+}
+
+// LinkDescription implements backend.Linkable.
+func (i *Item) LinkDescription() string {
+	return i.kind() + " PGP key " + shortKeyID(i.PGPKey.KeyID)
+}

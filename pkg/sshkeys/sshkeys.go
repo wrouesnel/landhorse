@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -480,4 +481,24 @@ func (i *Item) Delete(_ context.Context) error {
 		}
 	}
 	return nil
+}
+
+var _ backend.Linkable = (*Item)(nil)
+
+// LinkKeys implements backend.Linkable: the private key's path, which gnome-keyring's SSH
+// agent records on the passphrase it saves.
+func (i *Item) LinkKeys() []string {
+	if i.SSHKey.PrivatePath == nil {
+		return nil
+	}
+	path := i.SSHKey.PrivatePath.String()
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	return []string{"ssh-private-key:" + filepath.Clean(path)}
+}
+
+// LinkDescription implements backend.Linkable.
+func (i *Item) LinkDescription() string {
+	return "SSH key " + i.typeDescription()
 }
