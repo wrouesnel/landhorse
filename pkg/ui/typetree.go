@@ -29,12 +29,15 @@ type typeTree struct {
 
 	categories map[string]backend.Category
 	current    string
+	// expanded remembers which rows the user expanded or collapsed, by node ID, so a
+	// refresh doesn't reset the tree. Rows not in it use the default (see populate).
+	expanded map[string]bool
 	// loading suppresses selection callbacks while the store is rebuilt.
 	loading bool
 }
 
 func newTypeTree(app *App) (*typeTree, error) {
-	t := &typeTree{app: app, categories: map[string]backend.Category{}}
+	t := &typeTree{app: app, categories: map[string]backend.Category{}, expanded: map[string]bool{}}
 
 	var err error
 	t.store, err = gtk.TreeStoreNew(glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_INT)
@@ -62,6 +65,8 @@ func newTypeTree(app *App) (*typeTree, error) {
 	}
 	col.PackStart(icon, false)
 	col.AddAttribute(icon, "icon-name", typeColIcon)
+	// Long titles such as email addresses are cut short rather than widening the pane.
+	_ = text.SetProperty("ellipsize", pango.ELLIPSIZE_END)
 	col.PackStart(text, true)
 	col.AddAttribute(text, "text", typeColTitle)
 	col.AddAttribute(text, "weight", typeColWeight)
@@ -127,10 +132,29 @@ func (t *typeTree) populate(results []groupResult) {
 	}
 
 	t.loading = true
+	t.rememberExpansion()
 	t.store.Clear()
 	t.categories = map[string]backend.Category{}
 
 	var wantIter, firstIter *gtk.TreeIter
+	var addCategory func(parent *gtk.TreeIter, cat backend.Category)
+	addCategory = func(parent *gtk.TreeIter, cat backend.Category) {
+		iter := t.store.Append(parent)
+		t.set(iter, cat.IconName(), cat.Title(), cat.Key(), pango.WEIGHT_NORMAL)
+		t.categories[cat.Key()] = cat
+		if cat.Key() == want {
+			wantIter = iter
+		}
+		if firstIter == nil {
+			firstIter = iter
+		}
+		if p, ok := cat.(backend.Parent); ok {
+			for _, child := range p.Children() {
+				addCategory(iter, child)
+			}
+		}
+	}
+
 	for _, r := range results {
 		parent := t.store.Append(nil)
 		t.set(parent, r.group.IconName(), r.group.Title(), "", pango.WEIGHT_BOLD)
@@ -141,18 +165,10 @@ func (t *typeTree) populate(results []groupResult) {
 			continue
 		}
 		for _, cat := range r.categories {
-			child := t.store.Append(parent)
-			t.set(child, cat.IconName(), cat.Title(), cat.Key(), pango.WEIGHT_NORMAL)
-			t.categories[cat.Key()] = cat
-			if cat.Key() == want {
-				wantIter = child
-			}
-			if firstIter == nil {
-				firstIter = child
-			}
+			addCategory(parent, cat)
 		}
 	}
-	t.view.ExpandAll()
+	t.restoreExpansion()
 	t.loading = false
 
 	target := wantIter
@@ -168,27 +184,76 @@ func (t *typeTree) populate(results []groupResult) {
 	// Selecting the row fires "changed" unless it is already selected, and either way the
 	// category object was replaced, so load it explicitly.
 	t.loading = true
+	if path, err := t.store.ToTreeModel().GetPath(target); err == nil {
+		t.view.ExpandToPath(path)
+	}
 	sel.SelectIter(target)
 	t.loading = false
 	t.current = stringAt(t.store.ToTreeModel(), target, typeColKey)
 	t.app.onCategorySelected(t.selected())
 }
 
-// refreshIcons re-reads each category's icon, which reflects its lock state.
-func (t *typeTree) refreshIcons() {
+// nodeID identifies a row for remembering its expansion: the category key, or the group
+// title for group rows, which have no key.
+func (t *typeTree) nodeID(model *gtk.TreeModel, iter *gtk.TreeIter) string {
+	if key := stringAt(model, iter, typeColKey); key != "" {
+		return key
+	}
+	return "group:" + stringAt(model, iter, typeColTitle)
+}
+
+// walk calls fn for every row, parents before their children.
+func (t *typeTree) walk(fn func(iter *gtk.TreeIter, path *gtk.TreePath)) {
 	model := t.store.ToTreeModel()
-	var walk func(iter *gtk.TreeIter, ok bool)
-	walk = func(iter *gtk.TreeIter, ok bool) {
+	var visit func(iter *gtk.TreeIter, ok bool)
+	visit = func(iter *gtk.TreeIter, ok bool) {
 		for ; ok; ok = model.IterNext(iter) {
-			if cat, found := t.categories[stringAt(model, iter, typeColKey)]; found {
-				_ = t.store.SetValue(iter, typeColIcon, cat.IconName())
+			if path, err := model.GetPath(iter); err == nil {
+				fn(iter, path)
 			}
 			var child gtk.TreeIter
-			walk(&child, model.IterChildren(iter, &child))
+			visit(&child, model.IterChildren(iter, &child))
 		}
 	}
 	first, ok := model.GetIterFirst()
-	walk(first, ok)
+	visit(first, ok)
+}
+
+// rememberExpansion records the expansion of every row that has children.
+func (t *typeTree) rememberExpansion() {
+	model := t.store.ToTreeModel()
+	t.walk(func(iter *gtk.TreeIter, path *gtk.TreePath) {
+		var child gtk.TreeIter
+		if model.IterChildren(iter, &child) {
+			t.expanded[t.nodeID(model, iter)] = t.view.RowExpanded(path)
+		}
+	})
+}
+
+// restoreExpansion re-applies remembered expansion. Rows seen for the first time are
+// expanded down to the second level, so groups and their categories show but deeper
+// subcategories (such as one per email address) start collapsed.
+func (t *typeTree) restoreExpansion() {
+	model := t.store.ToTreeModel()
+	t.walk(func(iter *gtk.TreeIter, path *gtk.TreePath) {
+		expand, known := t.expanded[t.nodeID(model, iter)]
+		if !known {
+			expand = path.GetDepth() <= 2
+		}
+		if expand {
+			t.view.ExpandRow(path, false)
+		}
+	})
+}
+
+// refreshIcons re-reads each category's icon, which reflects its lock state.
+func (t *typeTree) refreshIcons() {
+	model := t.store.ToTreeModel()
+	t.walk(func(iter *gtk.TreeIter, _ *gtk.TreePath) {
+		if cat, found := t.categories[stringAt(model, iter, typeColKey)]; found {
+			_ = t.store.SetValue(iter, typeColIcon, cat.IconName())
+		}
+	})
 }
 
 func (t *typeTree) set(iter *gtk.TreeIter, icon, title, key string, weight pango.Weight) {

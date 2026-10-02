@@ -10,6 +10,7 @@ import (
 	"context"
 	"runtime"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/spf13/afero"
@@ -56,6 +57,8 @@ type App struct {
 func Run(ctx context.Context, opts Options) error {
 	gtk.Init(nil)
 
+	installCSS()
+
 	app := &App{ctx: ctx, opts: opts}
 	if err := app.build(); err != nil {
 		return err
@@ -70,6 +73,25 @@ func Run(ctx context.Context, opts Options) error {
 	app.refreshTypes()
 	gtk.Main()
 	return nil
+}
+
+// appCSS keeps the detail view's copy buttons no taller than a line of text, so fields stay
+// evenly spaced.
+const appCSS = `
+button.copy-button { padding: 0 4px; min-height: 0; min-width: 0; }
+`
+
+func installCSS() {
+	provider, err := gtk.CssProviderNew()
+	if err != nil {
+		return
+	}
+	if err := provider.LoadFromData(appCSS); err != nil {
+		return
+	}
+	if screen, err := gdk.ScreenGetDefault(); err == nil {
+		gtk.AddProviderForScreen(screen, provider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+	}
 }
 
 func (a *App) build() error {

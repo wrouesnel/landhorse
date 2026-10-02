@@ -31,6 +31,10 @@ type itemList struct {
 	items    []backend.Item
 	// indexCol is the store column holding the index into items.
 	indexCol int
+	// rankCols maps a cell column (0-based) to the hidden store column holding its rank,
+	// for columns that sort by backend.Column.SortRank.
+	rankCols map[int]int
+	ranks    map[int]func(string) int
 	// current is the selected item's key, kept across reloads.
 	current string
 	// generation discards results of loads that were superseded while running.
@@ -58,6 +62,12 @@ func newItemList(app *App) (*itemList, error) {
 
 	l.view.Connect("button-press-event", l.onButtonPress)
 	l.view.Connect("key-press-event", l.onKeyPress)
+	// Double-click or Enter: copy, for items that ask for it.
+	l.view.Connect("row-activated", func() {
+		if _, ok := l.selected().(backend.CopyOnActivate); ok {
+			l.app.actionCopy()
+		}
+	})
 	l.view.Connect("popup-menu", func() bool {
 		l.app.popupItemMenu(nil)
 		return true
@@ -163,6 +173,15 @@ func (l *itemList) setColumns(cat backend.Category) {
 	}
 	types = append(types, glib.TYPE_INT)
 	l.indexCol = len(types) - 1
+	l.rankCols = map[int]int{}
+	l.ranks = map[int]func(string) int{}
+	for i, c := range cols {
+		if c.SortRank != nil {
+			types = append(types, glib.TYPE_INT)
+			l.rankCols[i] = len(types) - 1
+			l.ranks[i] = c.SortRank
+		}
+	}
 
 	store, err := gtk.ListStoreNew(types...)
 	if err != nil {
@@ -190,7 +209,11 @@ func (l *itemList) setColumns(cat backend.Category) {
 		}
 		col.SetTitle(c.Title)
 		col.SetResizable(true)
-		col.SetSortColumnID(storeCol)
+		if rankCol, ok := l.rankCols[i]; ok {
+			col.SetSortColumnID(rankCol)
+		} else {
+			col.SetSortColumnID(storeCol)
+		}
 		col.SetExpand(c.Expand)
 
 		if i == 0 {
@@ -254,6 +277,9 @@ func (l *itemList) fill(items []backend.Item) {
 				break
 			}
 			_ = l.store.SetValue(iter, c+1, cell)
+			if rankCol, ok := l.rankCols[c]; ok {
+				_ = l.store.SetValue(iter, rankCol, l.ranks[c](cell))
+			}
 		}
 		_ = l.store.SetValue(iter, l.indexCol, i)
 	}

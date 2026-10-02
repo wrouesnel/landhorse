@@ -182,9 +182,15 @@ func (d *detailView) renderValue(f backend.Field) gtk.IWidget {
 	if f.Value == "" && f.Reveal == nil {
 		value.SetText("—")
 		addClass(value, "dim-label")
+		return value
 	}
 	if f.Reveal == nil {
-		return value
+		row, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 6)
+		value.SetVAlign(gtk.ALIGN_START)
+		row.PackStart(value, true, true, 0)
+		text := f.Value
+		row.PackStart(d.copyButton(f.Label, func(context.Context) (string, error) { return text, nil }), false, false, 0)
+		return row
 	}
 
 	value.SetText(secretMask)
@@ -229,7 +235,42 @@ func (d *detailView) renderValue(f backend.Field) gtk.IWidget {
 		})
 	})
 	row.PackStart(toggle, false, false, 0)
+	// Copying fetches the secret without showing it.
+	row.PackStart(d.copyButton(f.Label, func(ctx context.Context) (string, error) {
+		wasLocked := lockable != nil && lockable.Locked()
+		secret, err := f.Reveal(ctx)
+		if err == nil && wasLocked {
+			glib.IdleAdd(d.app.lockStateChanged)
+		}
+		return secret, err
+	}), false, false, 0)
 	return row
+}
+
+// copyButton is a small flat button that copies a field's value to the clipboard. value runs
+// in the background, as fetching a secret can block on an unlock prompt.
+func (d *detailView) copyButton(label string, value func(ctx context.Context) (string, error)) gtk.IWidget {
+	btn, err := gtk.ButtonNewFromIconName("edit-copy-symbolic", gtk.ICON_SIZE_MENU)
+	if err != nil {
+		return newLabel("")
+	}
+	btn.SetRelief(gtk.RELIEF_NONE)
+	btn.SetVAlign(gtk.ALIGN_START)
+	addClass(btn, "copy-button")
+	btn.SetTooltipText("Copy " + label)
+	btn.Connect("clicked", func() {
+		d.app.background(func(ctx context.Context) func() {
+			text, err := value(ctx)
+			return func() {
+				if err != nil {
+					d.app.showError("Could not copy "+label, err)
+					return
+				}
+				d.app.copyToClipboard(text, label)
+			}
+		})
+	})
+	return btn
 }
 
 // renderTable renders a table as a non-scrolling tree view, so it grows with its rows and

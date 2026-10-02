@@ -10,7 +10,12 @@ here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
 state=${SANDBOX_STATE:-${TMPDIR:-/tmp}/landhorse-sandbox}
 display=${SANDBOX_DISPLAY:-77}
-mkdir -p "$state"; rm -f "$state/ready"
+mkdir -p "$state"
+if [ -f "$state/pid" ] && kill -0 -- "-$(cat "$state/pid")" 2>/dev/null; then
+    echo "a sandbox is already running from $state; run stop.sh first" >&2
+    exit 1
+fi
+rm -f "$state/ready"
 
 setsid xvfb-run -n "$display" -f "$state/xauth" -s "-screen 0 1280x800x24" \
     dbus-run-session -- "$here/populate.sh" "$state" "$root/landhorse" --log-level=debug "$@" \

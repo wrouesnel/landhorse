@@ -16,12 +16,12 @@ import (
 type toolbar struct {
 	bar *gtk.Toolbar
 
-	refresh, unlock, lock, copy, importBtn, export, del *gtk.ToolButton
+	refresh, unlock, lock, copy, importBtn, export, publish, del *gtk.ToolButton
 }
 
 // menuItems are the menu entries whose sensitivity follows the selection.
 type menuItems struct {
-	importItem, export, copy, del, unlock, lock *gtk.MenuItem
+	importItem, export, publish, copy, del, unlock, lock *gtk.MenuItem
 }
 
 //nolint:gochecknoglobals // set once by buildMenuBar, read by updateActions
@@ -66,6 +66,7 @@ func (a *App) buildToolbar() (*toolbar, error) {
 		{&tb.copy, "edit-copy", "Copy", "Copy the password or public key (Ctrl+C in the list)", a.actionCopy},
 		{&tb.importBtn, "document-open", "Import…", "Import keys from a file (Ctrl+O)", a.actionImport},
 		{&tb.export, "document-save-as", "Export…", "Save the public key to a file (Ctrl+S)", a.actionExport},
+		{&tb.publish, "document-send", "Publish…", "Upload the public key to a keyserver", a.actionPublish},
 		{&tb.del, "edit-delete", "Delete", "Delete the selected item (Delete in the list)", a.actionDelete},
 	}
 	for _, b := range buttons {
@@ -146,6 +147,7 @@ func (a *App) buildMenuBar(accel *gtk.AccelGroup) (*gtk.MenuBar, error) {
 	file := addMenu("_File")
 	menus.importItem = addItem(file, "_Import…", gdk.KEY_o, gdk.CONTROL_MASK, a.actionImport)
 	menus.export = addItem(file, "_Export…", gdk.KEY_s, gdk.CONTROL_MASK, a.actionExport)
+	menus.publish = addItem(file, "_Publish to Keyserver…", 0, 0, a.actionPublish)
 	addSeparator(file)
 	addItem(file, "_Quit", gdk.KEY_q, gdk.CONTROL_MASK, func() { a.window.Destroy() })
 
@@ -192,6 +194,7 @@ func (a *App) popupItemMenu(ev *gdk.Event) {
 	_, canDelete := item.(backend.Deleter)
 	add(copyLabel, canCopy, a.actionCopy)
 	add("_Export…", canExport, a.actionExport)
+	add("_Publish…", canPublish(item), a.actionPublish)
 	sep, _ := gtk.SeparatorMenuItemNew()
 	menu.Append(sep)
 	add("_Delete", canDelete, a.actionDelete)
@@ -226,6 +229,7 @@ func (a *App) updateActions() {
 	set(canImport, a.toolbar.importBtn, menus.importItem)
 	set(canCopy, a.toolbar.copy, menus.copy)
 	set(canExport, a.toolbar.export, menus.export)
+	set(canPublish(item), a.toolbar.publish, menus.publish)
 	set(canDelete, a.toolbar.del, menus.del)
 
 	if copier, ok := item.(backend.Copier); ok {
@@ -289,15 +293,20 @@ func (a *App) actionCopy() {
 				a.showError("Could not copy the "+copier.CopyLabel(), err)
 				return
 			}
-			clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
-			if err != nil {
-				a.showError("Could not access the clipboard", err)
-				return
-			}
-			clipboard.SetText(text)
-			a.setStatus(fmt.Sprintf("Copied the %s to the clipboard.", copier.CopyLabel()))
+			a.copyToClipboard(text, "the "+copier.CopyLabel())
 		}
 	})
+}
+
+// copyToClipboard puts text on the clipboard and says what was copied in the status bar.
+func (a *App) copyToClipboard(text, what string) {
+	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		a.showError("Could not access the clipboard", err)
+		return
+	}
+	clipboard.SetText(text)
+	a.setStatus(fmt.Sprintf("Copied %s to the clipboard.", what))
 }
 
 func (a *App) actionImport() {
@@ -362,6 +371,93 @@ func (a *App) actionExport() {
 				return
 			}
 			a.setStatus("Exported to " + target.String())
+		}
+	})
+}
+
+// canPublish reports whether item can be published somewhere configured.
+func canPublish(item backend.Item) bool {
+	p, ok := item.(backend.Publisher)
+	return ok && len(p.PublishTargets()) > 0
+}
+
+// actionPublish asks where to publish the selected item, warning that it becomes public,
+// and uploads it.
+func (a *App) actionPublish() {
+	item := a.selectedItem()
+	publisher, ok := item.(backend.Publisher)
+	if !ok {
+		return
+	}
+	targets := publisher.PublishTargets()
+	if len(targets) == 0 {
+		return
+	}
+
+	dlg, err := gtk.DialogNew()
+	if err != nil {
+		a.showError("Could not open the publish dialog", err)
+		return
+	}
+	defer dlg.Destroy()
+	dlg.SetTitle("Publish")
+	dlg.SetTransientFor(a.window)
+	dlg.SetModal(true)
+	dlg.SetResizable(false)
+
+	box, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 12)
+	box.SetMarginStart(18)
+	box.SetMarginEnd(18)
+	box.SetMarginTop(18)
+	box.SetMarginBottom(12)
+
+	heading := newLabel("")
+	heading.SetMarkup("<b>Publish to a keyserver?</b>")
+	box.PackStart(heading, false, false, 0)
+
+	warning := newLabel(publisher.PublishWarning())
+	warning.SetLineWrap(true)
+	warning.SetMaxWidthChars(60)
+	warning.SetSelectable(true)
+	box.PackStart(warning, false, false, 0)
+
+	row, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 12)
+	label, _ := gtk.LabelNewWithMnemonic("_Keyserver:")
+	combo, _ := gtk.ComboBoxTextNew()
+	for _, t := range targets {
+		combo.Append(t.ID, t.Label)
+	}
+	combo.SetActive(0)
+	label.SetMnemonicWidget(combo)
+	row.PackStart(label, false, false, 0)
+	row.PackStart(combo, true, true, 0)
+	box.PackStart(row, false, false, 0)
+
+	content, _ := dlg.GetContentArea()
+	content.Add(box)
+	_, _ = dlg.AddButton("_Cancel", gtk.RESPONSE_CANCEL)
+	_, _ = dlg.AddButton("_Publish", gtk.RESPONSE_ACCEPT)
+	// Publishing can't be undone, so Enter must not do it by accident.
+	dlg.SetDefaultResponse(gtk.RESPONSE_CANCEL)
+	dlg.ShowAll()
+
+	response := dlg.Run()
+	target := combo.GetActiveID()
+	if response != gtk.RESPONSE_ACCEPT || target == "" {
+		return
+	}
+
+	a.setStatus("Publishing to " + target + "…")
+	a.background(func(ctx context.Context) func() {
+		report, err := publisher.Publish(ctx, target)
+		return func() {
+			if err != nil {
+				a.setStatus("")
+				a.showError("Publishing failed", err)
+				return
+			}
+			a.setStatus("Published to " + target)
+			a.showInfo("Published", report)
 		}
 	})
 }

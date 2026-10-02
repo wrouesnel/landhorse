@@ -64,10 +64,7 @@ func (c *ListCmd) Run(ctx context.Context, config *EntrypointConfig) error {
 			continue
 		}
 		for _, cat := range cats {
-			if err := listCategory(ctx, out, cat); err != nil {
-				_, _ = fmt.Fprintf(out, "    ! %v\n", err)
-				failed++
-			}
+			failed += listCategory(ctx, out, cat, 1)
 		}
 	}
 	if failed > 0 {
@@ -76,20 +73,31 @@ func (c *ListCmd) Run(ctx context.Context, config *EntrypointConfig) error {
 	return nil
 }
 
-func listCategory(ctx context.Context, out io.Writer, cat backend.Category) error {
+// listCategory prints a category, its items and its subcategories, indented by depth. It
+// returns how many categories failed to load.
+func listCategory(ctx context.Context, out io.Writer, cat backend.Category, depth int) int {
+	indent := strings.Repeat("  ", depth)
 	locked := ""
 	if lk, ok := cat.(backend.Lockable); ok && lk.Locked() {
 		locked = " [locked]"
 	}
-	_, _ = fmt.Fprintf(out, "  %s%s  (%s)\n", cat.Title(), locked, cat.Key())
+	_, _ = fmt.Fprintf(out, "%s%s%s  (%s)\n", indent, cat.Title(), locked, cat.Key())
+
+	failed := 0
 	items, err := cat.Items(ctx)
 	if err != nil {
-		return err
+		_, _ = fmt.Fprintf(out, "%s  ! %v\n", indent, err)
+		failed++
 	}
 	for _, item := range items {
-		_, _ = fmt.Fprintf(out, "    %s\n", strings.Join(item.Cells(), " | "))
+		_, _ = fmt.Fprintf(out, "%s  %s\n", indent, strings.Join(item.Cells(), " | "))
 	}
-	return nil
+	if p, ok := cat.(backend.Parent); ok {
+		for _, child := range p.Children() {
+			failed += listCategory(ctx, out, child, depth+1)
+		}
+	}
+	return failed
 }
 
 // buildGroups creates the enabled backends. The returned function releases them.
@@ -104,7 +112,15 @@ func buildGroups(config *EntrypointConfig, fs afero.Fs) ([]backend.Group, func()
 	}
 
 	if !config.PGP.Disabled {
-		groups = append(groups, &pgp.Group{GPG: &pgp.GPG{Binary: config.PGP.Binary, Home: config.PGP.Home}})
+		keyservers := config.PGP.Keyservers
+		if keyservers == nil {
+			keyservers = pgp.DefaultKeyservers
+		}
+		groups = append(groups, &pgp.Group{GPG: &pgp.GPG{
+			Binary:     config.PGP.Binary,
+			Home:       config.PGP.Home,
+			Keyservers: pgp.ParseKeyservers(keyservers),
+		}})
 	}
 
 	if !config.SSH.Disabled {

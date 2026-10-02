@@ -51,6 +51,9 @@ type PGPConfig struct {
 	Binary string `yaml:"binary"`
 	// Home overrides GNUPGHOME.
 	Home string `yaml:"home"`
+	// Keyservers are offered when publishing keys, each a URI optionally followed by a space
+	// and a display name. Unset means Seahorse's defaults; an empty list disables publishing.
+	Keyservers []string `yaml:"keyservers"`
 }
 
 // SSHConfig configures the OpenSSH key backend.

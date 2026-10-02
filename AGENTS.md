@@ -75,3 +75,6 @@ tools/sandbox/stop.sh
 ```
 
 Read-only commands such as `./landhorse list` are safe to run against real data.
+
+Tests and the sandbox generate disposable GPG keys in temporary `GNUPGHOME`s only; see the
+exception in `CLAUDE.md`. Never commit private keys or revocation certificates.

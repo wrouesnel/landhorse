@@ -239,10 +239,12 @@ func inspectPrivateKey(data []byte) (ssh.PublicKey, bool) {
 	}
 	var missing *ssh.PassphraseMissingError
 	if errors.As(err, &missing) {
-		// OpenSSH format keys store the public key unencrypted.
+		// OpenSSH format keys store the public key unencrypted; PEM keys don't, so this may
+		// be nil.
 		return missing.PublicKey, true
 	}
-	return nil, false
+	// Encrypted PKCS#8 isn't understood by the ssh package, but is plainly encrypted.
+	return nil, bytes.Contains(data, []byte("BEGIN ENCRYPTED PRIVATE KEY"))
 }
 
 func readAuthorizedKeys(path *pathlib.Path) map[string]bool {
@@ -295,10 +297,10 @@ func (c *Category) IconName() string { return "folder" }
 // Columns implements backend.Category.
 func (c *Category) Columns() []backend.Column {
 	return []backend.Column{
-		{Title: "Name", Expand: true},
+		{Title: "Name"},
 		{Title: "Type"},
-		{Title: "Fingerprint", Monospace: true, Truncate: true},
-		{Title: "File"},
+		{Title: "Comment", Expand: true},
+		{Title: "Passphrase Protected"},
 	}
 }
 
@@ -322,9 +324,10 @@ type Item struct {
 
 // Ensure Item implements the optional behaviours the toolbar looks for.
 var (
-	_ backend.Copier   = (*Item)(nil)
-	_ backend.Exporter = (*Item)(nil)
-	_ backend.Deleter  = (*Item)(nil)
+	_ backend.Copier         = (*Item)(nil)
+	_ backend.CopyOnActivate = (*Item)(nil)
+	_ backend.Exporter       = (*Item)(nil)
+	_ backend.Deleter        = (*Item)(nil)
 )
 
 // Key implements backend.Item.
@@ -340,7 +343,20 @@ func (i *Item) IconName() string {
 
 // Cells implements backend.Item.
 func (i *Item) Cells() []string {
-	return []string{i.SSHKey.DisplayName(), i.typeDescription(), i.SSHKey.Fingerprint(), i.SSHKey.Name}
+	return []string{i.SSHKey.Name, i.typeDescription(), i.SSHKey.Comment, i.passphraseProtected()}
+}
+
+// passphraseProtected describes whether the private key needs a passphrase. A lone public
+// key has no private key to protect.
+func (i *Item) passphraseProtected() string {
+	switch {
+	case i.SSHKey.PrivatePath == nil:
+		return "No private key"
+	case i.SSHKey.Encrypted:
+		return "Yes"
+	default:
+		return "No"
+	}
 }
 
 func (i *Item) typeDescription() string {
@@ -415,6 +431,10 @@ func (i *Item) Detail(_ context.Context) (*backend.Detail, error) {
 
 // CopyLabel implements backend.Copier.
 func (i *Item) CopyLabel() string { return "public key" }
+
+// CopyOnActivate implements backend.CopyOnActivate: double-clicking a key copies its
+// public key.
+func (i *Item) CopyOnActivate() {}
 
 // CopyText implements backend.Copier.
 func (i *Item) CopyText(_ context.Context) (string, error) {

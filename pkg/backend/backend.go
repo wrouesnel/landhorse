@@ -36,6 +36,13 @@ type Category interface {
 	Items(ctx context.Context) ([]Item, error)
 }
 
+// Parent is implemented by categories with subcategories beneath them in the type tree.
+// Selecting the parent shows all of its items; each child shows a subset.
+type Parent interface {
+	// Children is computed when the group lists its categories, so it doesn't block.
+	Children() []Category
+}
+
 // Column describes one column of the middle list.
 type Column struct {
 	Title string
@@ -46,6 +53,9 @@ type Column struct {
 	// Truncate lets a long value be cut short with an ellipsis instead of widening the
 	// column. Expanding columns always truncate.
 	Truncate bool
+	// SortRank, when set, orders the column by rank instead of alphabetically. Lower ranks
+	// come first when the column header is first clicked.
+	SortRank func(cell string) int
 }
 
 // Item is a row in the middle list.
@@ -113,11 +123,36 @@ type Copier interface {
 	CopyText(ctx context.Context) (string, error)
 }
 
+// CopyOnActivate is implemented by Copier items that copy themselves to the clipboard when
+// their row is activated (double-clicked, or Enter pressed).
+type CopyOnActivate interface {
+	Copier
+	CopyOnActivate()
+}
+
 // Exporter is implemented by items that can be saved to a file.
 type Exporter interface {
 	// ExportName is the suggested file name.
 	ExportName() string
 	Export(ctx context.Context) ([]byte, error)
+}
+
+// Publisher is implemented by items that can be uploaded somewhere public, such as a PGP
+// key to a keyserver.
+type Publisher interface {
+	// PublishTargets lists where the item can be published. Empty means nowhere is
+	// configured.
+	PublishTargets() []PublishTarget
+	// PublishWarning explains what will be made public, for the confirmation dialog.
+	PublishWarning() string
+	// Publish uploads the item to the target with the given ID and returns a report.
+	Publish(ctx context.Context, target string) (string, error)
+}
+
+// PublishTarget is somewhere an item can be published.
+type PublishTarget struct {
+	ID    string
+	Label string
 }
 
 // Deleter is implemented by items that can be deleted.

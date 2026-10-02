@@ -90,3 +90,75 @@ func TestDescriptions(t *testing.T) {
 		t.Errorf("ValidityName: got %q", got)
 	}
 }
+
+func TestHasSecretWithOfflinePrimary(t *testing.T) {
+	// Primary key is a stub (#), but a subkey's secret is here (+): still a private key.
+	keys, err := pgp.ParseColons(strings.NewReader(
+		"sec:u:255:22:1111222233334444:1700000000:::u:::scESC:::#::ed25519:::0:\n" +
+			"ssb:u:255:18:5555666677778888:1700000000::::::e:::+::cv25519:::\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys[0].Secret || !keys[0].HasSecret() {
+		t.Errorf("Secret %v HasSecret %v; want false, true", keys[0].Secret, keys[0].HasSecret())
+	}
+}
+
+func TestEmailsAndLatestComment(t *testing.T) {
+	k := &pgp.Key{UserIDs: []pgp.UserID{
+		{Raw: "Alice (old) <Alice@Example.com>", Created: time.Unix(1000, 0)},
+		{Raw: "Alice (newest) <alice@example.com>", Created: time.Unix(3000, 0)},
+		{Raw: "Alice (middle) <alice@work.example>", Created: time.Unix(2000, 0)},
+		{Raw: "Alice (revoked) <alice@gone.example>", Created: time.Unix(4000, 0), Validity: "r"},
+		{Raw: "Alice <alice@nocomment.example>", Created: time.Unix(5000, 0)},
+	}}
+	got := strings.Join(k.Emails(), ",")
+	if want := "alice@example.com,alice@work.example,alice@nocomment.example"; got != want {
+		t.Errorf("Emails: got %q, want %q", got, want)
+	}
+	if got := k.LatestComment(); got != "newest" {
+		t.Errorf("LatestComment: got %q, want %q", got, "newest")
+	}
+	if got := (&pgp.Key{UserIDs: []pgp.UserID{{Raw: "Bob <bob@example.org>"}}}).LatestComment(); got != "" {
+		t.Errorf("LatestComment without comments: got %q", got)
+	}
+}
+
+func TestParseKeyservers(t *testing.T) {
+	got := pgp.ParseKeyservers([]string{"hkps://keys.openpgp.org", "  ", "ldap://keyserver.pgp.com PGP Global Directory"})
+	if len(got) != 2 {
+		t.Fatalf("got %d keyservers, want 2: %v", len(got), got)
+	}
+	if got[0].URI != "hkps://keys.openpgp.org" || got[0].Name != "" || got[0].Label() != "hkps://keys.openpgp.org" {
+		t.Errorf("first: %+v", got[0])
+	}
+	if got[1].URI != "ldap://keyserver.pgp.com" || got[1].Label() != "PGP Global Directory (ldap://keyserver.pgp.com)" {
+		t.Errorf("second: %+v label %q", got[1], got[1].Label())
+	}
+}
+
+func TestValiditySortOrder(t *testing.T) {
+	// Strongest first: trust levels, then unknown, expired and revoked last.
+	order := []string{"Ultimate", "Full", "Marginal", "Never", "Unknown", "Expired", "Revoked"}
+	for i := 1; i < len(order); i++ {
+		if pgp.ValidityNameRank(order[i-1]) >= pgp.ValidityNameRank(order[i]) {
+			t.Errorf("%s (%d) should sort before %s (%d)", order[i-1], pgp.ValidityNameRank(order[i-1]),
+				order[i], pgp.ValidityNameRank(order[i]))
+		}
+	}
+	if pgp.ValidityNameRank("Unknown (new)") != pgp.ValidityNameRank("Unknown") {
+		t.Error("the unknown variants should rank together")
+	}
+}
+
+func TestRevokedKeyKeepsEmails(t *testing.T) {
+	k := &pgp.Key{SubKey: pgp.SubKey{Validity: "r"}, UserIDs: []pgp.UserID{
+		{Raw: "Dave (old) <dave@example.net>", Validity: "r"},
+	}}
+	if got := strings.Join(k.Emails(), ","); got != "dave@example.net" {
+		t.Errorf("Emails: got %q, want the revoked key's address", got)
+	}
+	if got := k.LatestComment(); got != "old" {
+		t.Errorf("LatestComment: got %q, want %q", got, "old")
+	}
+}

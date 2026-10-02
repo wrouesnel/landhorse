@@ -82,8 +82,10 @@ func TestList(t *testing.T) {
 		t.Fatalf("exit code: got %d, want 0\nstdout:\n%s\nstderr:\n%s", exitCode, stdOut, stdErr)
 	}
 	for _, want := range []string{
-		"PGP Keys", "GnuPG keys", "Test User | test@example.com", "| Personal |",
-		"Secure Shell", "OpenSSH keys", "test@laptop | Ed25519 256 | SHA256:",
+		"PGP Keys", "GnuPG keys", "Test User | test@example.com", "| Private |",
+		"Private keys", "test@example.com  (pgp:" + gnupgHome + ":private:email:test@example.com)",
+		"Public keys", "Secure Shell", "OpenSSH keys",
+		"id_ed25519 | Ed25519 256 | test@laptop | No private key",
 	} {
 		if !strings.Contains(stdOut, want) {
 			t.Errorf("stdout does not contain %q:\n%s", want, stdOut)

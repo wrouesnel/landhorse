@@ -86,6 +86,61 @@ func (k *Key) PrimaryUserID() UserID {
 	return k.UserIDs[0]
 }
 
+// HasSecret reports whether any secret part of the key is available: the primary key, or a
+// subkey here or on a smartcard. Keys whose primary secret key is kept offline, with only
+// subkeys on this machine, count.
+func (k *Key) HasSecret() bool {
+	if k.Secret {
+		return true
+	}
+	for _, sk := range k.SubKeys {
+		if sk.SecretStatus != "" && sk.SecretStatus != "#" {
+			return true
+		}
+	}
+	return false
+}
+
+// Emails returns the distinct email addresses of the key's user IDs, lowercased, in user ID
+// order. User IDs revoked on their own are skipped, as nobody should use them; a revoked
+// key keeps its addresses, so it can still be found.
+func (k *Key) Emails() []string {
+	seen := map[string]bool{}
+	var emails []string
+	for _, u := range k.UserIDs {
+		email := strings.ToLower(u.Email())
+		if email == "" || k.uidRevoked(u) || seen[email] {
+			continue
+		}
+		seen[email] = true
+		emails = append(emails, email)
+	}
+	return emails
+}
+
+// LatestComment returns the comment of the user ID with the most recent self-signature,
+// considering only user IDs that have a comment and weren't revoked on their own.
+func (k *Key) LatestComment() string {
+	var comment string
+	var latest time.Time
+	for _, u := range k.UserIDs {
+		c := u.Comment()
+		if c == "" || k.uidRevoked(u) {
+			continue
+		}
+		if comment == "" || u.Created.After(latest) {
+			comment, latest = c, u.Created
+		}
+	}
+	return comment
+}
+
+// uidRevoked reports whether a user ID was revoked by itself. gpg also marks every user ID
+// of a revoked key as revoked, which doesn't count.
+func (k *Key) uidRevoked(u UserID) bool {
+	return u.Validity == "r" && k.Validity != "r"
+}
+
 // ParseColons parses the output of gpg --with-colons --fixed-list-mode --list-keys or
 // --list-secret-keys.
 func ParseColons(r io.Reader) ([]*Key, error) {
@@ -263,6 +318,51 @@ func ValidityName(code string) string {
 	default:
 		return code
 	}
+}
+
+// validityOrder lists validity codes from strongest to weakest, as the Validity column
+// sorts: trust levels first, then the doubtful, then unknown, expired and revoked last.
+// Codes on one line rank equally.
+//
+//nolint:gochecknoglobals
+var validityOrder = [][]string{
+	{"u"},               // Ultimate
+	{"f"},               // Full
+	{"m"},               // Marginal
+	{"w"},               // Well known private
+	{"s"},               // Special
+	{"n"},               // Never
+	{"d"},               // Disabled
+	{"i"},               // Invalid
+	{"q", "o", "-", ""}, // Undefined and unknown
+	{"e"},               // Expired
+	{"r"},               // Revoked
+}
+
+// ValidityRank orders validity codes: 0 for Ultimate, increasing to Revoked.
+func ValidityRank(code string) int {
+	for rank, codes := range validityOrder {
+		for _, c := range codes {
+			if c == code {
+				return rank
+			}
+		}
+	}
+	// Unrecognised codes rank with unknown.
+	return ValidityRank("-")
+}
+
+// ValidityNameRank is ValidityRank for a name returned by ValidityName, which is what the
+// item list holds.
+func ValidityNameRank(name string) int {
+	for _, codes := range validityOrder {
+		for _, c := range codes {
+			if ValidityName(c) == name {
+				return ValidityRank(c)
+			}
+		}
+	}
+	return ValidityRank("-")
 }
 
 // CapabilityNames describes the lowercase usage flags of a key, e.g. "esc".
