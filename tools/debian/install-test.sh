@@ -2,7 +2,7 @@
 # install-test.sh SERIES - check that the built landhorse package replaces seahorse cleanly.
 #
 # In a fresh container of the release it installs seahorse and openpgp-applet (which
-# depends on seahorse), then installs landhorse from release/deb/SERIES/, and checks that
+# depends on seahorse), then installs landhorse from dist/deb/SERIES/, and checks that
 # seahorse was removed, openpgp-applet stayed installed, the seahorse command and schema
 # still exist, and that apt sees gnome's "seahorse (>= 3.36)" dependency as satisfied.
 set -euo pipefail
@@ -10,7 +10,7 @@ set -euo pipefail
 declare -A RELEASES=([noble]=24.04 [resolute]=26.04)
 series=${1:?usage: install-test.sh SERIES}
 release=${RELEASES[$series]:?unknown series $series}
-out="$(git rev-parse --show-toplevel)/release/deb/$series"
+out="$(git rev-parse --show-toplevel)/dist/deb/$series"
 ls "$out"/landhorse_*.deb >/dev/null
 
 podman run --rm -v "$out:/debs:ro,Z" -e DEBIAN_FRONTEND=noninteractive \

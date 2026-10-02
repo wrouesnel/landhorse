@@ -1386,7 +1386,7 @@ func Autogen() error {
 var debianSeries = []string{"noble", "resolute"}
 
 // Deb builds Ubuntu source and binary packages for every supported release, in containers,
-// into release/deb/<series>/. See tools/debian/build.sh.
+// into dist/deb/<series>/. See tools/debian/build.sh.
 func Deb() error {
 	for _, series := range debianSeries {
 		if err := DebSeries(series); err != nil {

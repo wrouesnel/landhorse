@@ -57,17 +57,21 @@ go run mage.go debSeries noble     # one release: noble (24.04) or resolute (26.
 ```
 
 This builds source and binary packages in podman containers of each release, runs the
-tests and lintian, and writes them to `release/deb/<series>/`. `go run mage.go debTest`
+tests and lintian, and writes them to `dist/deb/<series>/`. `go run mage.go debTest`
 then checks that installing the package replaces seahorse cleanly. The `landhorse` package
 replaces `seahorse`: installing it removes seahorse, and it provides the `seahorse` command
 and package so that desktop metapackages, LibreOffice and other packages that depend on
 seahorse stay installed and working.
 
+**Package repository:** none yet. Packages are not attached to GitHub Releases (those
+carry only the binary archives); they will be published through a PPA, and this section
+will give its URL and the commands to add it and install landhorse.
+
 To publish to a Launchpad PPA, sign and upload each release's source package:
 
 ```sh
-debsign -k<fingerprint> release/deb/noble/*_source.changes
-dput ppa:<you>/<ppa> release/deb/noble/*_source.changes
+debsign -k<fingerprint> dist/deb/noble/*_source.changes
+dput ppa:<you>/<ppa> dist/deb/noble/*_source.changes
 ```
 
 ## Usage

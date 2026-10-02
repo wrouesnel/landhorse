@@ -5,11 +5,11 @@
 # working tree (tracked files, plus untracked files that aren't ignored), with the Go
 # modules vendored and debian/copyright generated, and given a per-series version such as
 # 0.1.0~ubuntu24.04.1. It is then built in a container of that release, which also runs
-# the tests and lintian. Results land in release/deb/SERIES/.
+# the tests and lintian. Results land in dist/deb/SERIES/.
 #
 # The source package is unsigned. To upload to a PPA:
-#   debsign -k<fingerprint> release/deb/SERIES/*_source.changes
-#   dput ppa:<you>/<ppa> release/deb/SERIES/*_source.changes
+#   debsign -k<fingerprint> dist/deb/SERIES/*_source.changes
+#   dput ppa:<you>/<ppa> dist/deb/SERIES/*_source.changes
 set -euo pipefail
 
 declare -A RELEASES=([noble]=24.04 [resolute]=26.04)
@@ -22,7 +22,7 @@ root=$(git rev-parse --show-toplevel)
 cd "$root"
 base=$(dpkg-parsechangelog -l debian/changelog -S Version 2>/dev/null || sed -n '1s/.*(\(.*\)).*/\1/p' debian/changelog)
 version="${base}~ubuntu${release}.1"
-out="$root/release/deb/$series"
+out="$root/dist/deb/$series"
 src="$out/landhorse-$version"
 
 rm -rf "$out"

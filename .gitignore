@@ -1,6 +1,9 @@
 # Build output (see the const block at the top of magefile.go)
 /bin/
 /release/
+# OS packages from go run mage.go deb. Kept out of release/, whose contents are attached to
+# GitHub Releases, which are for binary archives only.
+/dist/
 /.coverage/
 /.cover.out
 /.junit/
