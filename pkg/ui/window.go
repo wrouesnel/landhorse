@@ -33,6 +33,8 @@ type Options struct {
 	Fs afero.Fs
 	// InitialCategory, when set, selects the category with this key on startup.
 	InitialCategory string
+	// ConfigPath is the configuration file, named in help text about settings.
+	ConfigPath string
 }
 
 // App is the main window and its state.

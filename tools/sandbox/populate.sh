@@ -30,6 +30,9 @@ quiet() { "$@" >/dev/null 2>&1; }
 nopass=(--batch --pinentry-mode loopback --passphrase '')
 quiet gpg "${nopass[@]}" --quick-generate-key "Alice Example <alice@example.com>" ed25519 default 2y
 quiet gpg "${nopass[@]}" --quick-add-uid alice@example.com "Alice Example (work) <alice@work.example>"
+# A private key with a passphrase ("sandbox"), to exercise gpg-agent's passphrase prompt.
+quiet gpg --batch --pinentry-mode loopback --passphrase sandbox \
+    --quick-generate-key "Pat Passphrase <pat@example.com>" ed25519 default never
 
 other=$(mktemp -d "$STATE/other.XXXXXX"); chmod 700 "$other"
 og() { quiet gpg --homedir "$other" "${nopass[@]}" "$@"; }
@@ -43,6 +46,10 @@ og --quick-generate-key "Dave Revoked <dave@example.net>" ed25519 default never
 # to stop accidental import.
 dave=$(gpg --homedir "$other" --with-colons --list-keys dave@example.net | awk -F: '/^fpr/{print $10; exit}')
 sed 's/^:-----BEGIN/-----BEGIN/' "$other/openpgp-revocs.d/$dave.rev" > "$STATE/dave.rev"
+# Keep Erin's revocation certificate as gpg saved it (colon guard and all), to test revoking
+# a key whose secret part isn't here.
+erin=$(gpg --homedir "$other" --with-colons --list-keys erin@example.net | awk -F: '/^fpr/{print $10; exit}')
+cp "$other/openpgp-revocs.d/$erin.rev" "$HOME/erin.rev"
 og --import "$STATE/dave.rev"
 gpg --homedir "$other" --armor --export > "$HOME/others.asc"
 gpgconf --homedir "$other" --kill all; rm -rf "$other" "$STATE/dave.rev"

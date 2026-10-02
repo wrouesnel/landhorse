@@ -142,17 +142,41 @@ type Exporter interface {
 type Publisher interface {
 	// PublishTargets lists where the item can be published. Empty means nowhere is
 	// configured.
-	PublishTargets() []PublishTarget
+	PublishTargets() []Choice
 	// PublishWarning explains what will be made public, for the confirmation dialog.
 	PublishWarning() string
 	// Publish uploads the item to the target with the given ID and returns a report.
 	Publish(ctx context.Context, target string) (string, error)
 }
 
-// PublishTarget is somewhere an item can be published.
-type PublishTarget struct {
+// Choice is one option offered to the user, such as a keyserver or a revocation reason.
+type Choice struct {
 	ID    string
 	Label string
+}
+
+// Revoker is implemented by items that can be permanently revoked, such as PGP keys.
+// Revoking only helps if others learn of it, so it is always published too.
+type Revoker interface {
+	// Revoked reports whether the item is already revoked.
+	Revoked() bool
+	// RevokeTargets lists where the revocation can be published. Revoking is only offered
+	// when there is at least one.
+	RevokeTargets() []Choice
+	// CheckRevocation validates a revocation certificate for this item without applying it,
+	// and describes it.
+	CheckRevocation(ctx context.Context, cert string) (string, error)
+	// Revoke applies a revocation certificate and publishes it to target.
+	Revoke(ctx context.Context, cert string, target string) (string, error)
+	// CanGenerateRevocation reports whether a certificate can be made here, and if not, why.
+	CanGenerateRevocation() (bool, string)
+	// RevocationReasons are the reasons GenerateRevocation accepts.
+	RevocationReasons() []Choice
+	// GenerateRevocation makes a revocation certificate. It may prompt for a passphrase.
+	GenerateRevocation(ctx context.Context, reason string, description string) (string, error)
+	// ConfirmationCode is a short code, such as the key ID, that the user must type to
+	// confirm generating a revocation, so the right item is revoked.
+	ConfirmationCode() string
 }
 
 // Deleter is implemented by items that can be deleted.

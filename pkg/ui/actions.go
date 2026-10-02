@@ -21,7 +21,7 @@ type toolbar struct {
 
 // menuItems are the menu entries whose sensitivity follows the selection.
 type menuItems struct {
-	importItem, export, publish, copy, del, unlock, lock *gtk.MenuItem
+	importItem, export, publish, revoke, copy, del, unlock, lock *gtk.MenuItem
 }
 
 //nolint:gochecknoglobals // set once by buildMenuBar, read by updateActions
@@ -154,6 +154,7 @@ func (a *App) buildMenuBar(accel *gtk.AccelGroup) (*gtk.MenuBar, error) {
 	edit := addMenu("_Edit")
 	menus.copy = addItem(edit, "_Copy Password or Key", 0, 0, a.actionCopy)
 	menus.del = addItem(edit, "_Delete", 0, 0, a.actionDelete)
+	menus.revoke = addItem(edit, "Re_voke Key…", 0, 0, a.actionRevoke)
 	addSeparator(edit)
 	menus.unlock = addItem(edit, "_Unlock Keyring", 0, 0, a.actionUnlock)
 	menus.lock = addItem(edit, "_Lock Keyring", gdk.KEY_l, gdk.CONTROL_MASK, a.actionLock)
@@ -195,6 +196,9 @@ func (a *App) popupItemMenu(ev *gdk.Event) {
 	add(copyLabel, canCopy, a.actionCopy)
 	add("_Export…", canExport, a.actionExport)
 	add("_Publish…", canPublish(item), a.actionPublish)
+	if _, ok := item.(backend.Revoker); ok {
+		add("Re_voke…", canRevoke(item), a.actionRevoke)
+	}
 	sep, _ := gtk.SeparatorMenuItemNew()
 	menu.Append(sep)
 	add("_Delete", canDelete, a.actionDelete)
@@ -230,6 +234,7 @@ func (a *App) updateActions() {
 	set(canCopy, a.toolbar.copy, menus.copy)
 	set(canExport, a.toolbar.export, menus.export)
 	set(canPublish(item), a.toolbar.publish, menus.publish)
+	set(canRevoke(item), menus.revoke)
 	set(canDelete, a.toolbar.del, menus.del)
 
 	if copier, ok := item.(backend.Copier); ok {
@@ -373,6 +378,13 @@ func (a *App) actionExport() {
 			a.setStatus("Exported to " + target.String())
 		}
 	})
+}
+
+// canRevoke reports whether item can be revoked. Revoking is offered even without a
+// keyserver, so the dialog can explain that one is needed.
+func canRevoke(item backend.Item) bool {
+	r, ok := item.(backend.Revoker)
+	return ok && !r.Revoked()
 }
 
 // canPublish reports whether item can be published somewhere configured.

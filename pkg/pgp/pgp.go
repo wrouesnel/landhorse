@@ -31,12 +31,35 @@ type GPG struct {
 	Keyservers []Keyserver
 }
 
-// run executes gpg and returns its standard output. On failure the error includes the
-// tail of standard error, which is where gpg explains itself.
+// invocation adjusts how gpg is run.
+type invocation struct {
+	// stdin is fed to gpg's standard input.
+	stdin []byte
+	// interactive drops --batch, for commands gpg refuses to run in batch mode (such as
+	// --gen-revoke), which are then driven through --command-fd 0.
+	interactive bool
+	// home overrides the GnuPG home, for scratch keyrings.
+	home string
+}
+
+// run executes gpg and returns its standard output and standard error.
 func (g *GPG) run(ctx context.Context, args ...string) ([]byte, []byte, error) {
-	full := []string{"--batch", "--no-tty", "--with-colons", "--fixed-list-mode"}
-	if g.Home != "" {
-		full = append(full, "--homedir", g.Home)
+	return g.runWith(ctx, invocation{}, args...)
+}
+
+// runWith executes gpg. On failure the error includes standard error, which is where gpg
+// explains itself.
+func (g *GPG) runWith(ctx context.Context, inv invocation, args ...string) ([]byte, []byte, error) {
+	full := []string{"--no-tty"}
+	if !inv.interactive {
+		full = append(full, "--batch", "--with-colons", "--fixed-list-mode")
+	}
+	home := g.Home
+	if inv.home != "" {
+		home = inv.home
+	}
+	if home != "" {
+		full = append(full, "--homedir", home)
 	}
 	full = append(full, args...)
 
@@ -50,6 +73,9 @@ func (g *GPG) run(ctx context.Context, args ...string) ([]byte, []byte, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if inv.stdin != nil {
+		cmd.Stdin = bytes.NewReader(inv.stdin)
+	}
 	if err := cmd.Run(); err != nil {
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
@@ -466,10 +492,10 @@ func (i *Item) Delete(ctx context.Context) error {
 }
 
 // PublishTargets implements backend.Publisher.
-func (i *Item) PublishTargets() []backend.PublishTarget {
-	targets := make([]backend.PublishTarget, 0, len(i.GPG.Keyservers))
+func (i *Item) PublishTargets() []backend.Choice {
+	targets := make([]backend.Choice, 0, len(i.GPG.Keyservers))
 	for _, ks := range i.GPG.Keyservers {
-		targets = append(targets, backend.PublishTarget{ID: ks.URI, Label: ks.Label()})
+		targets = append(targets, backend.Choice{ID: ks.URI, Label: ks.Label()})
 	}
 	return targets
 }

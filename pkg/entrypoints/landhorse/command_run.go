@@ -27,7 +27,7 @@ type RunCmd struct {
 }
 
 // Run is invoked by kong with the values bound in Entrypoint.
-func (r *RunCmd) Run(ctx context.Context, config *EntrypointConfig) error {
+func (r *RunCmd) Run(ctx context.Context, cli *CLIConfig, config *EntrypointConfig) error {
 	l := logutil.FromCtx(ctx)
 	fs := afero.NewOsFs()
 
@@ -38,7 +38,12 @@ func (r *RunCmd) Run(ctx context.Context, config *EntrypointConfig) error {
 	defer closeGroups()
 
 	l.Debug("Opening main window", zap.Int("groups", len(groups)))
-	return ui.Run(ctx, ui.Options{Groups: groups, Fs: fs, InitialCategory: r.Category})
+	return ui.Run(ctx, ui.Options{
+		Groups:          groups,
+		Fs:              fs,
+		InitialCategory: r.Category,
+		ConfigPath:      cli.ConfigFile.String(),
+	})
 }
 
 // ListCmd prints what the main window would show, for scripting and diagnostics.
