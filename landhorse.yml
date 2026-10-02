@@ -1,0 +1,20 @@
+# Example configuration. landhorse reads $XDG_CONFIG_HOME/landhorse/landhorse.yml
+# (normally ~/.config/landhorse/landhorse.yml) when it exists, or the file named by
+# --config-file. Every key is optional; the values below are the defaults.
+# Keys map to EntrypointConfig in pkg/entrypoints/landhorse/config.go.
+
+passwords:
+  # Keyrings and passwords from the Secret Service (gnome-keyring, KeePassXC).
+  disabled: false
+
+pgp:
+  disabled: false
+  # gpg executable, looked up on PATH.
+  binary: gpg
+  # Overrides GNUPGHOME when set.
+  home: ""
+
+ssh:
+  disabled: false
+  # Directory scanned for OpenSSH keys. Empty means ~/.ssh.
+  directory: ""
