@@ -37,10 +37,10 @@ func plural(n int, one, many string) string {
 	return fmt.Sprintf("%d %s", n, many)
 }
 
-// keySearcher returns a category that can search keyservers, if there is one.
+// keySearcher returns the category that searches every keyserver, if there is one.
 func (a *App) keySearcher() backend.KeySearcher {
 	for _, cat := range a.types.categories {
-		if s, ok := cat.(backend.KeySearcher); ok {
+		if s, ok := cat.(backend.KeySearcher); ok && s.SearchesEverywhere() {
 			return s
 		}
 	}
@@ -153,7 +153,7 @@ func (r *resultsPane) search(query string) {
 		r.app.info.paned.SetPosition(h * 55 / 100)
 	}
 	r.app.background(func(ctx context.Context) func() {
-		items, problems, err := searcher.Search(ctx, query, "")
+		items, problems, err := searcher.Search(ctx, query)
 		return func() {
 			if gen != r.gen {
 				return

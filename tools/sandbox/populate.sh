@@ -11,7 +11,7 @@ STATE=$1; shift
 export HOME=$STATE/home
 export XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share XDG_RUNTIME_DIR=$STATE/run
 export GNUPGHOME=$HOME/.gnupg
-rm -rf "$HOME" "$XDG_RUNTIME_DIR" "$STATE/published"
+rm -rf "$HOME" "$XDG_RUNTIME_DIR" "$STATE/published" "$STATE/published-2"
 mkdir -p "$HOME/.ssh" "$GNUPGHOME" "$XDG_DATA_HOME/keyrings" "$XDG_RUNTIME_DIR"
 chmod 700 "$HOME/.ssh" "$GNUPGHOME" "$XDG_RUNTIME_DIR"
 
@@ -69,11 +69,14 @@ quiet gpg "${nopass[@]}" --yes --quick-sign-key \
 
 # A fake keyserver, so Publish never reaches a real one. Uploads land in $STATE/published.
 "$(dirname "$0")/hkp-stub.py" 11371 "$STATE/published" &
+# A second, empty keyserver, so searching all keyservers can be compared with one.
+"$(dirname "$0")/hkp-stub.py" 11372 "$STATE/published-2" &
 mkdir -p "$XDG_CONFIG_HOME/landhorse"
 cat > "$XDG_CONFIG_HOME/landhorse/landhorse.yml" <<YAML
 pgp:
   keyservers:
     - hkp://127.0.0.1:11371 Sandbox keyserver
+    - hkp://127.0.0.1:11372 Empty keyserver
 YAML
 
 # SSH: an unencrypted pair, a passphrase protected pair, and a lone public key.

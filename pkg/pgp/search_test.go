@@ -20,9 +20,15 @@ func TestKeyserverSearch(t *testing.T) {
 
 	home := newGnuPGHome(t)
 	g := &pgp.GPG{Home: home, Keyservers: []pgp.Keyserver{{URI: ks.URI, Name: "Fake"}}}
-	cat := &pgp.KeyserverCategory{GPG: g}
+	cat := pgp.NewKeyserverCategory(g)
+	if len(cat.Children()) != 1 || cat.Children()[0].Title() != "Fake" {
+		t.Fatalf("children: %v", cat.Children())
+	}
+	if items, _, err := cat.Children()[0].(*pgp.KeyserverCategory).Search(ctx, "bob"); err != nil || len(items) != 1 {
+		t.Fatalf("searching one keyserver: %v %v", items, err)
+	}
 
-	items, problems, err := cat.Search(ctx, "bob", "")
+	items, problems, err := cat.Search(ctx, "bob")
 	if err != nil || len(problems) != 0 {
 		t.Fatalf("Search: %v %v", err, problems)
 	}
@@ -62,7 +68,7 @@ func TestKeyserverSearch(t *testing.T) {
 		t.Fatalf("after import: %+v", keys)
 	}
 
-	if items, _, err := cat.Search(ctx, "nobody-at-all", ""); err != nil || len(items) != 0 {
+	if items, _, err := cat.Search(ctx, "nobody-at-all"); err != nil || len(items) != 0 {
 		t.Errorf("empty search: %v %v", items, err)
 	}
 }

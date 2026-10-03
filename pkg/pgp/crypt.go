@@ -125,6 +125,13 @@ func (i *Item) SignText(ctx context.Context, text string) (string, error) {
 	return string(out), err
 }
 
+// CryptIdentity implements backend.Crypter.
+func (i *Item) CryptIdentity() backend.Identity {
+	uid := i.PGPKey.PrimaryUserID()
+	return backend.Identity{Name: uid.Name(), Email: uid.Email(), Comment: uid.Comment(),
+		KeyID: shortKeyID(i.PGPKey.KeyID)}
+}
+
 // CryptName implements backend.Crypter: who files are encrypted to.
 func (i *Item) CryptName() string {
 	uid := i.PGPKey.PrimaryUserID()

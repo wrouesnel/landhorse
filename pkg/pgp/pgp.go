@@ -263,7 +263,7 @@ func (g *Group) keyservers() *KeyserverCategory {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.keyserverCategory == nil {
-		g.keyserverCategory = &KeyserverCategory{GPG: g.GPG}
+		g.keyserverCategory = NewKeyserverCategory(g.GPG)
 	}
 	return g.keyserverCategory
 }

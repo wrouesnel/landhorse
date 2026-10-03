@@ -25,9 +25,8 @@ type itemList struct {
 	scroll *gtk.ScrolledWindow
 	box    *gtk.Box
 
-	searchBar    *gtk.Box
-	searchField  *gtk.SearchEntry
-	searchTarget *gtk.ComboBoxText
+	searchBar   *gtk.Box
+	searchField *gtk.SearchEntry
 
 	store  *gtk.ListStore
 	filter *gtk.TreeModelFilter
@@ -116,11 +115,9 @@ func (l *itemList) buildSearchBar() error {
 	l.searchField, _ = gtk.SearchEntryNew()
 	l.searchField.SetHExpand(true)
 	l.searchField.Connect("activate", l.runSearch)
-	l.searchTarget, _ = gtk.ComboBoxTextNew()
 	button, _ := gtk.ButtonNewWithMnemonic("_Search")
 	button.Connect("clicked", l.runSearch)
 	l.searchBar.PackStart(l.searchField, true, true, 0)
-	l.searchBar.PackStart(l.searchTarget, false, false, 0)
 	l.searchBar.PackStart(button, false, false, 0)
 	return nil
 }
@@ -133,15 +130,6 @@ func (l *itemList) showSearchBar(cat backend.Category) {
 		return
 	}
 	l.searchField.SetPlaceholderText(searcher.SearchPlaceholder())
-	l.searchTarget.RemoveAll()
-	targets := searcher.SearchTargets()
-	if len(targets) > 1 {
-		l.searchTarget.Append("", "All keyservers")
-	}
-	for _, t := range targets {
-		l.searchTarget.Append(t.ID, t.Label)
-	}
-	l.searchTarget.SetActive(0)
 	l.searchBar.SetNoShowAll(false)
 	l.searchBar.ShowAll()
 	// After the click that selected the category, which would take focus back.
@@ -155,12 +143,11 @@ func (l *itemList) runSearch() {
 		return
 	}
 	query, _ := l.searchField.GetText()
-	target := l.searchTarget.GetActiveID()
 	l.generation++
 	gen := l.generation
 	l.app.setStatus("Searching…")
 	l.app.background(func(ctx context.Context) func() {
-		items, problems, err := searcher.Search(ctx, query, target)
+		items, problems, err := searcher.Search(ctx, query)
 		return func() {
 			if gen != l.generation {
 				return

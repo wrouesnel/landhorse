@@ -124,22 +124,54 @@ func (g *GPG) FetchKey(ctx context.Context, keyserver, id string) ([]byte, *Key,
 	return armored, key, err
 }
 
-// KeyserverCategory is the "Keyservers" node under PGP Keys: the results of the last
-// search, which the user runs from the search bar above the list.
+// KeyserverCategory is the "Keyservers" node under PGP Keys, which searches every
+// configured keyserver, or one of its children, which search one each. Its items are the
+// results of the last search, which the user runs from the search bar above the list.
 type KeyserverCategory struct {
 	GPG *GPG
+	// Keyserver is the one keyserver searched, or nil for all of them.
+	Keyserver *Keyserver
 
-	mu      sync.Mutex
-	results []backend.Item
+	mu       sync.Mutex
+	results  []backend.Item
+	children []backend.Category
 }
 
-var _ backend.KeySearcher = (*KeyserverCategory)(nil)
+var (
+	_ backend.KeySearcher = (*KeyserverCategory)(nil)
+	_ backend.Parent      = (*KeyserverCategory)(nil)
+)
+
+// NewKeyserverCategory returns the Keyservers category with a child per keyserver.
+func NewKeyserverCategory(g *GPG) *KeyserverCategory {
+	c := &KeyserverCategory{GPG: g}
+	for i := range g.Keyservers {
+		c.children = append(c.children, &KeyserverCategory{GPG: g, Keyserver: &g.Keyservers[i]})
+	}
+	return c
+}
+
+// Children implements backend.Parent: one category per keyserver.
+func (c *KeyserverCategory) Children() []backend.Category { return c.children }
 
 // Key implements backend.Category.
-func (c *KeyserverCategory) Key() string { return "pgp-keyservers:" + c.GPG.Home }
+func (c *KeyserverCategory) Key() string {
+	if c.Keyserver != nil {
+		return "pgp-keyservers:" + c.GPG.Home + ":" + c.Keyserver.URI
+	}
+	return "pgp-keyservers:" + c.GPG.Home
+}
 
 // Title implements backend.Category.
-func (c *KeyserverCategory) Title() string { return "Keyservers" }
+func (c *KeyserverCategory) Title() string {
+	if c.Keyserver != nil {
+		if c.Keyserver.Name != "" {
+			return c.Keyserver.Name
+		}
+		return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(c.Keyserver.URI, "hkps://"), "hkp://"), "ldap://")
+	}
+	return "Keyservers"
+}
 
 // IconName implements backend.Category.
 func (c *KeyserverCategory) IconName() string { return "network-server-symbolic" }
@@ -163,31 +195,29 @@ func (c *KeyserverCategory) Items(_ context.Context) ([]backend.Item, error) {
 	return append([]backend.Item(nil), c.results...), nil
 }
 
-// SearchTargets implements backend.KeySearcher.
-func (c *KeyserverCategory) SearchTargets() []backend.Choice {
-	targets := make([]backend.Choice, 0, len(c.GPG.Keyservers))
-	for _, ks := range c.GPG.Keyservers {
-		targets = append(targets, backend.Choice{ID: ks.URI, Label: ks.Label()})
-	}
-	return targets
-}
-
 // SearchPlaceholder implements backend.KeySearcher.
 func (c *KeyserverCategory) SearchPlaceholder() string {
-	return "Search keyservers by name, email or key ID"
+	if c.Keyserver != nil {
+		return "Search " + c.Title() + " by name, email or key ID"
+	}
+	return "Search all keyservers by name, email or key ID"
 }
 
-// Search implements backend.KeySearcher. An empty target searches every keyserver;
-// results found on several are listed once. Keyservers that fail are reported as problems
-// unless all of them fail.
-func (c *KeyserverCategory) Search(ctx context.Context, query, target string) ([]backend.Item, []string, error) {
+// SearchesEverywhere implements backend.KeySearcher.
+func (c *KeyserverCategory) SearchesEverywhere() bool { return c.Keyserver == nil }
+
+// Search implements backend.KeySearcher: one keyserver, or for the parent category all of
+// them, with results found on several listed once. Keyservers that fail are reported as
+// problems unless all of them fail.
+func (c *KeyserverCategory) Search(ctx context.Context, query string) ([]backend.Item, []string, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil, errors.New("enter something to search for")
 	}
-	servers := []string{target}
-	if target == "" {
-		servers = nil
+	var servers []string
+	if c.Keyserver != nil {
+		servers = []string{c.Keyserver.URI}
+	} else {
 		for _, ks := range c.GPG.Keyservers {
 			servers = append(servers, ks.URI)
 		}
@@ -384,6 +414,13 @@ func (r *RemoteItem) ExportName() string { return lastN(r.Result.ID, 16) + ".asc
 func (r *RemoteItem) Export(ctx context.Context) ([]byte, error) {
 	armored, _, err := r.fetch(ctx)
 	return armored, err
+}
+
+// CryptIdentity implements backend.Crypter.
+func (r *RemoteItem) CryptIdentity() backend.Identity {
+	uid := r.primaryUID()
+	return backend.Identity{Name: uid.Name(), Email: uid.Email(), Comment: uid.Comment(),
+		KeyID: shortKeyID(lastN(r.Result.ID, 16))}
 }
 
 // CryptName implements backend.Crypter.

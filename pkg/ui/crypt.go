@@ -229,9 +229,18 @@ func (a *App) actionCryptText() {
 	if err != nil {
 		return
 	}
-	win.SetTitle("Text — " + crypter.CryptName())
+	title := "Encrypt Text"
+	switch {
+	case canSign && canEncrypt:
+		title = "Sign or Encrypt Text"
+	case canSign:
+		title = "Sign Text"
+	}
+	win.SetTitle(title + " — " + crypter.CryptName())
 	win.SetTransientFor(a.window)
-	win.SetDefaultSize(640, 560)
+	// An ordinary, movable window, opening centred over landhorse's.
+	win.SetPosition(gtk.WIN_POS_CENTER_ON_PARENT)
+	win.SetDefaultSize(640, 600)
 
 	box, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 8)
 	box.SetMarginStart(12)
@@ -239,6 +248,7 @@ func (a *App) actionCryptText() {
 	box.SetMarginTop(12)
 	box.SetMarginBottom(12)
 	win.Add(box)
+	box.PackStart(identityHeader(crypter.CryptIdentity(), canSign), false, false, 0)
 
 	textArea := func(editable bool) (*gtk.TextView, *gtk.TextBuffer, gtk.IWidget) {
 		view, _ := gtk.TextViewNew()
@@ -334,4 +344,53 @@ func (a *App) actionCryptText() {
 	}
 	win.ShowAll()
 	inView.GrabFocus()
+}
+
+// identityHeader shows whose key the text pane uses: name, email, comment and key ID.
+func identityHeader(id backend.Identity, private bool) gtk.IWidget {
+	row, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 12)
+	row.SetMarginBottom(6)
+	iconName := "avatar-default-symbolic"
+	if private {
+		iconName = "dialog-password"
+	}
+	if icon, err := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_DIALOG); err == nil {
+		icon.SetVAlign(gtk.ALIGN_START)
+		row.PackStart(icon, false, false, 0)
+	}
+	grid, _ := gtk.GridNew()
+	grid.SetColumnSpacing(12)
+	grid.SetRowSpacing(2)
+	name := id.Name
+	if name == "" {
+		name = "(no name)"
+	}
+	heading := newLabel("")
+	heading.SetMarkup(`<span size="large" weight="bold">` + html.EscapeString(name) + `</span>`)
+	grid.Attach(heading, 0, 0, 2, 1)
+	r := 1
+	for _, f := range []struct {
+		label, value string
+		mono         bool
+	}{
+		{"Email", id.Email, false},
+		{"Comment", id.Comment, false},
+		{"Key ID", id.KeyID, true},
+	} {
+		if f.value == "" {
+			continue
+		}
+		l := newLabel(f.label)
+		addClass(l, "dim-label")
+		l.SetXAlign(1)
+		v := newLabel(f.value)
+		if f.mono {
+			v.SetMarkup(`<span font_family="monospace">` + html.EscapeString(f.value) + `</span>`)
+		}
+		grid.Attach(l, 0, r, 1, 1)
+		grid.Attach(v, 1, r, 1, 1)
+		r++
+	}
+	row.PackStart(grid, true, true, 0)
+	return row
 }

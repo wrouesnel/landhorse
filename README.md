@@ -19,7 +19,7 @@ conventional desktop layout:
 | Passwords → each keyring | The Secret Service D-Bus API (gnome-keyring, KeePassXC) | Show and copy passwords, delete, lock and unlock keyrings |
 | PGP Keys → GnuPG keys → Private keys / Public keys → each email address | The `gpg` command (`--with-colons`) | Copy, export or publish public keys, import, revoke, delete |
 | PGP Keys → GnuPG keys → My Keys | Your default identity: `default-key` in gpg.conf, Seahorse's setting, or your first private key | As above |
-| PGP Keys → Keyservers | A search bar over the configured keyservers | Import found keys, or copy, export and encrypt to them without importing |
+| PGP Keys → Keyservers → each keyserver | A search bar: Keyservers searches all of them, each keyserver itself | Import found keys, or copy, export and encrypt to them without importing |
 | Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, change passphrases (saving them in the login keyring), delete key pairs |
 | Secure Shell → SSH agent | The agent at `$SSH_AUTH_SOCK` | Copy (or double-click) and export public keys, remove keys from the agent |
 

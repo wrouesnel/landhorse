@@ -288,11 +288,21 @@ type SecretStore interface {
 	DeleteSecrets(ctx context.Context, attrs map[string]string) (int, error)
 }
 
+// Identity describes whose a key is.
+type Identity struct {
+	Name    string
+	Email   string
+	Comment string
+	KeyID   string
+}
+
 // Crypter is implemented by keys that encrypt to their owner or sign for them, such as
 // PGP keys. Each operation reports why it isn't possible through the Can methods.
 type Crypter interface {
 	// CryptName is who encrypted data is for, e.g. the key owner's name.
 	CryptName() string
+	// CryptIdentity describes the key in full, for headers.
+	CryptIdentity() Identity
 	CanEncrypt() (bool, string)
 	CanSign() (bool, string)
 	// EncryptionWarning is non-empty when the key isn't verified as its owner's; the user
@@ -311,14 +321,14 @@ type Crypter interface {
 // KeySearcher is implemented by categories whose items are the results of a search the
 // user runs, such as a keyserver search. The item list shows a search bar for them.
 type KeySearcher interface {
-	// SearchTargets are where a search can run, e.g. keyservers. Searching with an empty
-	// target searches all of them.
-	SearchTargets() []Choice
-	// SearchPlaceholder is the search field's hint text.
+	// SearchPlaceholder is the search field's hint text, saying where it searches.
 	SearchPlaceholder() string
+	// SearchesEverywhere is true for the searcher covering every source (e.g. all
+	// keyservers), used when searching for something without a category selected.
+	SearchesEverywhere() bool
 	// Search runs a search and remembers its results as the category's items. problems
-	// lists targets that failed when others succeeded.
-	Search(ctx context.Context, query, target string) (items []Item, problems []string, err error)
+	// lists sources that failed when others succeeded.
+	Search(ctx context.Context, query string) (items []Item, problems []string, err error)
 }
 
 // RemoteImporter is implemented by items found elsewhere, such as on a keyserver, that can
