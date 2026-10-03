@@ -16,28 +16,49 @@ type relatedRef struct {
 	categoryKey   string
 	categoryTitle string
 	item          backend.Linkable
+	// relation describes a one-way relation, e.g. "Signed this key"; empty for shared keys.
+	relation string
 }
 
-// relatedIndex maps link keys to the items that report them, across every backend.
+// relatedIndex maps link keys to the items that report them, and to the items that refer
+// to them, across every backend.
 type relatedIndex struct {
 	byKey map[string][]relatedRef
+	byRef map[string][]relatedRef
 }
 
-// lookup returns the items related to item, excluding item itself.
+// lookup returns the items related to item, excluding item itself: items sharing a link
+// key, items it refers to, and items referring to it.
 func (r *relatedIndex) lookup(item backend.Linkable) []relatedRef {
 	if r == nil {
 		return nil
 	}
 	seen := map[string]bool{}
 	var result []relatedRef
+	addRef := func(ref relatedRef, relation string) {
+		id := ref.categoryKey + "\x00" + ref.item.Key()
+		if ref.item.Key() == item.Key() || seen[id] {
+			return
+		}
+		seen[id] = true
+		ref.relation = relation
+		result = append(result, ref)
+	}
 	for _, key := range item.LinkKeys() {
 		for _, ref := range r.byKey[key] {
-			id := ref.categoryKey + "\x00" + ref.item.Key()
-			if ref.item.Key() == item.Key() || seen[id] {
-				continue
+			addRef(ref, "")
+		}
+		for _, ref := range r.byRef[key] {
+			_, incoming := ref.item.(backend.Referrer).ReferenceLabels()
+			addRef(ref, incoming)
+		}
+	}
+	if referrer, ok := item.(backend.Referrer); ok {
+		outgoing, _ := referrer.ReferenceLabels()
+		for _, key := range referrer.LinkReferences() {
+			for _, ref := range r.byKey[key] {
+				addRef(ref, outgoing)
 			}
-			seen[id] = true
-			result = append(result, ref)
 		}
 	}
 	return result
@@ -51,7 +72,7 @@ func (a *App) rebuildRelated() {
 	gen := a.relatedGeneration
 	categories := a.types.topCategories()
 	a.background(func(ctx context.Context) func() {
-		index := &relatedIndex{byKey: map[string][]relatedRef{}}
+		index := &relatedIndex{byKey: map[string][]relatedRef{}, byRef: map[string][]relatedRef{}}
 		for _, cat := range categories {
 			items, err := cat.Items(ctx)
 			if err != nil {
@@ -67,6 +88,11 @@ func (a *App) rebuildRelated() {
 				ref := relatedRef{categoryKey: cat.Key(), categoryTitle: cat.Title(), item: linkable}
 				for _, key := range linkable.LinkKeys() {
 					index.byKey[key] = append(index.byKey[key], ref)
+				}
+				if referrer, ok := item.(backend.Referrer); ok {
+					for _, key := range referrer.LinkReferences() {
+						index.byRef[key] = append(index.byRef[key], ref)
+					}
 				}
 			}
 		}
@@ -155,7 +181,11 @@ func relatedRow(ref relatedRef) gtk.IWidget {
 	title.SetMarkup("<b>" + html.EscapeString(ref.item.Cells()[0]) + "</b>")
 	title.SetLineWrap(true)
 	text.PackStart(title, false, false, 0)
-	sub := newLabel(ref.item.LinkDescription() + " · " + ref.categoryTitle)
+	subtitle := ref.item.LinkDescription() + " · " + ref.categoryTitle
+	if ref.relation != "" {
+		subtitle = ref.relation + " · " + subtitle
+	}
+	sub := newLabel(subtitle)
 	sub.SetLineWrap(true)
 	addClass(sub, "dim-label")
 	text.PackStart(sub, false, false, 0)

@@ -162,3 +162,33 @@ func TestRevokedKeyKeepsEmails(t *testing.T) {
 		t.Errorf("LatestComment: got %q, want %q", got, "old")
 	}
 }
+
+func TestParseSignatures(t *testing.T) {
+	listing := `pub:u:255:22:8DEA3EF258D43F24:1791037695:::u:::scESC
+fpr:::::::::F41BA2836056D52FDAB02CA58DEA3EF258D43F24:
+uid:u::::1791037695::HASH::Bob <b@x>::
+sig:::22:8DEA3EF258D43F24:1791037695::::Bob <b@x>:13x:
+sig:::22:F6A44FBCB9791A3F:1791037696::::Alice <a@x>:10x:
+rev:::22:1234123412341234:1791037697::::Carol <c@x>:30x:
+sub:u:255:18:D7D22B4512A1614F:1791037695::::::e
+fpr:::::::::12FCB571C17138FEB5A2994BD7D22B4512A1614F:
+sig:::22:8DEA3EF258D43F24:1791037695::::Bob <b@x>:18x:
+`
+	keys, err := pgp.ParseColons(strings.NewReader(listing))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sigs := keys[0].Signatures
+	if len(sigs) != 2 {
+		t.Fatalf("got %d signatures, want 2 (no self or binding signatures): %+v", len(sigs), sigs)
+	}
+	if sigs[0].SignerKeyID != "F6A44FBCB9791A3F" || sigs[0].SignerUserID != "Alice <a@x>" || sigs[0].Revocation {
+		t.Errorf("first: %+v", sigs[0])
+	}
+	if !sigs[1].Revocation || sigs[1].Class != "30x" {
+		t.Errorf("second: %+v", sigs[1])
+	}
+	if got := strings.Join(keys[0].Signers(), ","); got != "F6A44FBCB9791A3F,1234123412341234" {
+		t.Errorf("Signers: %s", got)
+	}
+}

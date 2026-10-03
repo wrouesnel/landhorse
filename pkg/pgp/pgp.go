@@ -16,6 +16,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	logutil "github.com/wrouesnel/go.logutil"
 	"go.uber.org/zap"
@@ -31,6 +32,17 @@ type GPG struct {
 	Home string
 	// Keyservers are offered when publishing keys.
 	Keyservers []Keyserver
+
+	mu sync.Mutex
+	// defaultKey is the default identity found by the last Group.Categories.
+	defaultKey *DefaultKey
+}
+
+// DefaultKey returns the default identity, if the keyring has been listed and has one.
+func (g *GPG) DefaultKey() *DefaultKey {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.defaultKey
 }
 
 // invocation adjusts how gpg is run.
@@ -106,7 +118,7 @@ func (g *GPG) runWith(ctx context.Context, inv invocation, args ...string) ([]by
 // ListKeys returns all keys in the public keyring. Keys whose secret part is available
 // have Secret set.
 func (g *GPG) ListKeys(ctx context.Context) ([]*Key, error) {
-	out, _, err := g.run(ctx, "--with-fingerprint", "--with-keygrip", "--list-keys")
+	out, _, err := g.run(ctx, "--with-fingerprint", "--with-keygrip", "--list-sigs")
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +193,9 @@ func (g *GPG) Delete(ctx context.Context, fingerprint string, secret bool) error
 // Group is the "PGP Keys" node of the type tree.
 type Group struct {
 	GPG *GPG
+
+	mu                sync.Mutex
+	keyserverCategory *KeyserverCategory
 }
 
 // Title implements backend.Group.
@@ -212,11 +227,45 @@ func (g *Group) Categories(ctx context.Context) ([]backend.Category, error) {
 		match: func(k *Key) bool { return !k.HasSecret() },
 	}, keys)
 
+	children := []backend.Category{private, public}
+	if def := g.GPG.ResolveDefaultKey(ctx, keys); def != nil {
+		fpr := def.Fingerprint
+		mine := &Category{
+			GPG: g.GPG, key: base + ":mine", title: "My Keys", icon: "starred-symbolic",
+			match: func(k *Key) bool { return k.Fingerprint == fpr },
+		}
+		children = append([]backend.Category{mine}, children...)
+		g.setDefault(def)
+	} else {
+		g.setDefault(nil)
+	}
 	all := &Category{
 		GPG: g.GPG, key: base, title: "GnuPG keys", icon: "folder",
-		children: []backend.Category{private, public},
+		children: children,
 	}
-	return []backend.Category{all}, nil
+	cats := []backend.Category{all}
+	if len(g.GPG.Keyservers) > 0 {
+		cats = append(cats, g.keyservers())
+	}
+	return cats, nil
+}
+
+// setDefault records the default identity, which items mention in their details.
+func (g *Group) setDefault(def *DefaultKey) {
+	g.GPG.mu.Lock()
+	defer g.GPG.mu.Unlock()
+	g.GPG.defaultKey = def
+}
+
+// keyservers returns the Keyservers category, keeping it (and its last search) across
+// refreshes.
+func (g *Group) keyservers() *KeyserverCategory {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.keyserverCategory == nil {
+		g.keyserverCategory = &KeyserverCategory{GPG: g.GPG}
+	}
+	return g.keyserverCategory
 }
 
 // byEmail adds a child to parent for each email address among the keys it matches, sorted
@@ -306,10 +355,14 @@ func (c *Category) Items(ctx context.Context) ([]backend.Item, error) {
 	if err != nil {
 		return nil, err
 	}
+	keyring := make(map[string]*Key, len(keys))
+	for _, k := range keys {
+		keyring[k.KeyID] = k
+	}
 	items := make([]backend.Item, 0, len(keys))
 	for _, k := range keys {
 		if c.match == nil || c.match(k) {
-			items = append(items, &Item{GPG: c.GPG, PGPKey: k})
+			items = append(items, &Item{GPG: c.GPG, PGPKey: k, keyring: keyring})
 		}
 	}
 	return items, nil
@@ -327,6 +380,8 @@ func (c *Category) Import(ctx context.Context, path string) (string, error) {
 type Item struct {
 	GPG    *GPG
 	PGPKey *Key
+	// keyring maps long key IDs to the keys in the keyring, to describe signers.
+	keyring map[string]*Key
 }
 
 var (
@@ -417,11 +472,11 @@ func (i *Item) Detail(_ context.Context) (*backend.Detail, error) {
 		{Label: "Validity", Value: ValidityName(k.Validity)},
 		{Label: "Owner trust", Value: ValidityName(k.OwnerTrust)},
 	}
-
-	uids := &backend.Table{Columns: []string{"Name", "Email", "Comment", "Validity"}}
-	for _, u := range k.UserIDs {
-		uids.Rows = append(uids.Rows, []string{u.Name(), u.Email(), u.Comment(), ValidityName(u.Validity)})
+	if def := i.GPG.DefaultKey(); def != nil && def.Fingerprint == k.Fingerprint {
+		keyFields = append(keyFields, backend.Field{Label: "Default identity", Value: "Yes, from " + def.Source})
 	}
+
+	uids := i.namesAndSignatures()
 
 	subkeys := &backend.Table{Columns: []string{"Key ID", "Algorithm", "Usage", "Created", "Expires", "Status", "Secret"}}
 	for _, sk := range append([]SubKey{k.SubKey}, k.SubKeys...) {
@@ -543,10 +598,11 @@ func (i *Item) Publish(ctx context.Context, target string) (string, error) {
 var _ backend.Linkable = (*Item)(nil)
 
 // LinkKeys implements backend.Linkable: the fingerprints and keygrips of the primary key and
-// its subkeys, which saved passphrases refer to.
+// its subkeys, which saved passphrases refer to, and the long key ID, which signatures
+// refer to.
 func (i *Item) LinkKeys() []string {
 	k := i.PGPKey
-	var keys []string
+	keys := []string{"gpg-keyid:" + strings.ToUpper(k.KeyID)}
 	for _, sk := range append([]SubKey{k.SubKey}, k.SubKeys...) {
 		if sk.Fingerprint != "" {
 			keys = append(keys, "gpg-fpr:"+strings.ToUpper(sk.Fingerprint))
@@ -600,4 +656,79 @@ func (i *Item) ExportSecret(ctx context.Context, password string) ([]byte, error
 		return nil, fmt.Errorf("encrypting the export: %w", err)
 	}
 	return encrypted, nil
+}
+
+var _ backend.Referrer = (*Item)(nil)
+
+// LinkReferences implements backend.Referrer: the keys that certified this key's user IDs.
+func (i *Item) LinkReferences() []string {
+	var refs []string
+	revoked := map[string]bool{}
+	for _, s := range i.PGPKey.Signatures {
+		if s.Revocation {
+			revoked[s.SignerKeyID] = true
+		}
+	}
+	for _, id := range i.PGPKey.Signers() {
+		if !revoked[id] {
+			refs = append(refs, "gpg-keyid:"+id)
+		}
+	}
+	return refs
+}
+
+// ReferenceLabels implements backend.Referrer.
+func (i *Item) ReferenceLabels() (string, string) {
+	return "Signed this key", "Signed by this key"
+}
+
+// namesAndSignatures lists the user IDs, each with the signatures certifying it beneath it.
+// Double-clicking a signature goes to the signing key, or searches keyservers for it.
+func (i *Item) namesAndSignatures() *backend.Table {
+	k := i.PGPKey
+	table := &backend.Table{Columns: []string{"Name", "Email", "Comment", "Validity"}}
+	for idx, u := range k.UserIDs {
+		table.Rows = append(table.Rows, []string{u.Name(), u.Email(), u.Comment(), ValidityName(u.Validity)})
+		var children []backend.TableRow
+		for _, s := range k.Signatures {
+			if s.UserID != idx {
+				continue
+			}
+			// gpg fills in "[User ID not found]" and the like for keys it doesn't have.
+			raw := s.SignerUserID
+			if strings.HasPrefix(raw, "[") {
+				raw = ""
+			}
+			signer := UserID{Raw: raw}
+			name := signer.Name()
+			status := "Not in your keyring"
+			if known, ok := i.keyring[s.SignerKeyID]; ok {
+				status = "In your keyring"
+				if name == "" {
+					name = known.PrimaryUserID().Name()
+				}
+			}
+			if name == "" {
+				name = "Unknown signer"
+			}
+			if s.Revocation {
+				status = "Signature revoked"
+			}
+			verb := "Signed by "
+			if s.Revocation {
+				verb = "Revoked by "
+			}
+			children = append(children, backend.TableRow{
+				Cells: []string{
+					verb + name,
+					signer.Email(),
+					shortKeyID(s.SignerKeyID) + " · " + backend.FormatDate(s.Created, ""),
+					status,
+				},
+				Link: &backend.TableLink{LinkKey: "gpg-keyid:" + s.SignerKeyID, Search: "0x" + s.SignerKeyID},
+			})
+		}
+		table.Children = append(table.Children, children)
+	}
+	return table
 }

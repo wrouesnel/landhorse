@@ -16,6 +16,9 @@ type Key struct {
 	OwnerTrust string
 	UserIDs    []UserID
 	SubKeys    []SubKey
+	// Signatures are the certifications of the key's user IDs by other keys (self
+	// signatures are left out), from a --list-sigs listing.
+	Signatures []Signature
 	// Secret is true when the secret part of the primary key is available.
 	Secret bool
 }
@@ -35,6 +38,34 @@ type SubKey struct {
 	// SecretStatus is field 15 of sec/ssb: "+" for available, "#" for a stub (secret not
 	// here), or a card serial number.
 	SecretStatus string
+}
+
+// Signature is a certification of one of a key's user IDs by another key.
+type Signature struct {
+	// UserID indexes Key.UserIDs.
+	UserID int
+	// SignerKeyID is the long key ID of the signing key.
+	SignerKeyID string
+	// SignerUserID is the signer's user ID, if gpg knows the signing key.
+	SignerUserID string
+	Created      time.Time
+	// Class is the signature class, e.g. "10x" (exportable generic certification).
+	Class string
+	// Revocation is true for a "rev" record, which withdraws an earlier certification.
+	Revocation bool
+}
+
+// Signers returns the distinct key IDs of the keys that certified this one, in order.
+func (k *Key) Signers() []string {
+	seen := map[string]bool{}
+	var ids []string
+	for _, s := range k.Signatures {
+		if !seen[s.SignerKeyID] {
+			seen[s.SignerKeyID] = true
+			ids = append(ids, s.SignerKeyID)
+		}
+	}
+	return ids
 }
 
 // UserID is a uid record.
@@ -149,6 +180,8 @@ func ParseColons(r io.Reader) ([]*Key, error) {
 		current *Key
 		// last is the key record the next fpr/grp record belongs to.
 		last *SubKey
+		// uid is the index of the user ID that sig records belong to, or -1 under a subkey.
+		uid = -1
 	)
 
 	scanner := bufio.NewScanner(r)
@@ -172,12 +205,14 @@ func ParseColons(r io.Reader) ([]*Key, error) {
 			}
 			keys = append(keys, current)
 			last = &current.SubKey
+			uid = -1
 		case "sub", "ssb":
 			if current == nil {
 				continue
 			}
 			current.SubKeys = append(current.SubKeys, parseSubKey(field))
 			last = &current.SubKeys[len(current.SubKeys)-1]
+			uid = -1
 		case "uid":
 			if current == nil {
 				continue
@@ -188,6 +223,21 @@ func ParseColons(r io.Reader) ([]*Key, error) {
 				Raw:      unescape(field(10)),
 			})
 			last = nil
+			uid = len(current.UserIDs) - 1
+		case "sig", "rev":
+			// Certifications of a user ID by another key; self signatures and subkey
+			// bindings are skipped.
+			if current == nil || uid < 0 || field(5) == current.KeyID {
+				continue
+			}
+			current.Signatures = append(current.Signatures, Signature{
+				UserID:       uid,
+				SignerKeyID:  field(5),
+				SignerUserID: unescape(field(10)),
+				Created:      parseTime(field(6)),
+				Class:        field(11),
+				Revocation:   field(1) == "rev",
+			})
 		case "fpr":
 			if last != nil && last.Fingerprint == "" {
 				last.Fingerprint = field(10)

@@ -25,6 +25,9 @@ type detailView struct {
 	// fillRelated once the related items index is ready.
 	item       backend.Item
 	relatedBox *gtk.Box
+
+	paned   *gtk.Paned
+	results *resultsPane
 }
 
 func newDetailView(app *App) (*detailView, error) {
@@ -48,11 +51,23 @@ func newDetailView(app *App) (*detailView, error) {
 	d.box.SetMarginBottom(18)
 	d.scroll.Add(d.box)
 
+	// The details above, and keyserver search results below when there are any.
+	d.paned, err = gtk.PanedNew(gtk.ORIENTATION_VERTICAL)
+	if err != nil {
+		return nil, err
+	}
+	d.paned.Pack1(d.scroll, true, false)
+	d.results, err = newResultsPane(app)
+	if err != nil {
+		return nil, err
+	}
+	d.paned.Pack2(d.results.widget(), true, false)
+
 	d.showMessage("", "Select an item to see its details.")
 	return d, nil
 }
 
-func (d *detailView) widget() gtk.IWidget { return d.scroll }
+func (d *detailView) widget() gtk.IWidget { return d.paned }
 
 func (d *detailView) clear() {
 	d.relatedBox = nil
@@ -111,6 +126,10 @@ func (d *detailView) show(item backend.Item) {
 
 func (d *detailView) render(detail *backend.Detail) {
 	d.clear()
+	// A new item starts at the top, not where the last one was scrolled to.
+	if adj := d.scroll.GetVAdjustment(); adj != nil {
+		adj.SetValue(0)
+	}
 
 	// Header: large icon beside the title and subtitle.
 	header, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 12)
@@ -135,6 +154,14 @@ func (d *detailView) render(detail *backend.Detail) {
 	}
 	header.PackStart(titles, true, true, 0)
 	d.box.PackStart(header, false, false, 0)
+	if importer, ok := d.item.(backend.RemoteImporter); ok {
+		btn, _ := gtk.ButtonNewWithMnemonic("_" + importer.ImportLabel())
+		addClass(btn, "suggested-action")
+		btn.SetHAlign(gtk.ALIGN_START)
+		btn.SetMarginTop(6)
+		btn.Connect("clicked", func() { d.app.importRemote(importer) })
+		d.box.PackStart(btn, false, false, 0)
+	}
 	if crypter, ok := d.item.(backend.Crypter); ok {
 		d.box.PackStart(d.renderCryptAreas(crypter), false, false, 0)
 	}
@@ -178,7 +205,7 @@ func (d *detailView) renderSection(section backend.Section) gtk.IWidget {
 	}
 
 	if section.Table != nil {
-		box.PackStart(renderTable(section.Table), false, false, 0)
+		box.PackStart(d.renderTable(section.Table), false, false, 0)
 	}
 	return box
 }
@@ -302,21 +329,49 @@ func (d *detailView) copyButton(label string, value func(ctx context.Context) (s
 }
 
 // renderTable renders a table as a non-scrolling tree view, so it grows with its rows and
-// the detail pane scrolls as a whole.
-func renderTable(table *backend.Table) gtk.IWidget {
-	types := make([]glib.Type, len(table.Columns))
-	for i := range types {
+// the detail pane scrolls as a whole. Nested rows show expanded beneath their parent, and
+// rows with links follow them on double-click.
+func (d *detailView) renderTable(table *backend.Table) gtk.IWidget {
+	if len(table.Rows) == 0 {
+		return newLabel("None")
+	}
+	// One string column per table column, then the index of the row's link (-1 for none).
+	types := make([]glib.Type, len(table.Columns)+1)
+	for i := range table.Columns {
 		types[i] = glib.TYPE_STRING
 	}
-	store, err := gtk.ListStoreNew(types...)
+	linkCol := len(table.Columns)
+	types[linkCol] = glib.TYPE_INT
+	store, err := gtk.TreeStoreNew(types...)
 	if err != nil {
 		return newLabel(err.Error())
 	}
-	for _, row := range table.Rows {
-		iter := store.Append()
-		for i, cell := range row {
-			if i < len(types) {
+
+	var links []*backend.TableLink
+	add := func(parent *gtk.TreeIter, cells []string, link *backend.TableLink) *gtk.TreeIter {
+		iter := store.Append(parent)
+		for i, cell := range cells {
+			if i < linkCol {
 				_ = store.SetValue(iter, i, cell)
+			}
+		}
+		idx := -1
+		if link != nil {
+			idx = len(links)
+			links = append(links, link)
+		}
+		_ = store.SetValue(iter, linkCol, idx)
+		return iter
+	}
+	for r, row := range table.Rows {
+		var link *backend.TableLink
+		if r < len(table.Links) {
+			link = table.Links[r]
+		}
+		parent := add(nil, row, link)
+		if r < len(table.Children) {
+			for _, child := range table.Children[r] {
+				add(parent, child.Cells, child.Link)
 			}
 		}
 	}
@@ -339,8 +394,24 @@ func renderTable(table *backend.Table) gtk.IWidget {
 		col.SetResizable(true)
 		view.AppendColumn(col)
 	}
-	if len(table.Rows) == 0 {
-		return newLabel("None")
+	view.ExpandAll()
+	if len(links) > 0 {
+		view.SetTooltipText("Double-click a signature to go to the key that made it")
+		view.Connect("row-activated", func(_ *gtk.TreeView, path *gtk.TreePath) {
+			model := store.ToTreeModel()
+			iter, err := model.GetIter(path)
+			if err != nil {
+				return
+			}
+			v, err := model.GetValue(iter, linkCol)
+			if err != nil {
+				return
+			}
+			gv, _ := v.GoValue()
+			if idx, ok := gv.(int); ok && idx >= 0 && idx < len(links) {
+				d.app.followTableLink(links[idx])
+			}
+		})
 	}
 
 	frame, _ := gtk.FrameNew("")

@@ -18,6 +18,8 @@ conventional desktop layout:
 |---|---|---|
 | Passwords → each keyring | The Secret Service D-Bus API (gnome-keyring, KeePassXC) | Show and copy passwords, delete, lock and unlock keyrings |
 | PGP Keys → GnuPG keys → Private keys / Public keys → each email address | The `gpg` command (`--with-colons`) | Copy, export or publish public keys, import, revoke, delete |
+| PGP Keys → GnuPG keys → My Keys | Your default identity: `default-key` in gpg.conf, Seahorse's setting, or your first private key | As above |
+| PGP Keys → Keyservers | A search bar over the configured keyservers | Import found keys, or copy, export and encrypt to them without importing |
 | Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, change passphrases (saving them in the login keyring), delete key pairs |
 | Secure Shell → SSH agent | The agent at `$SSH_AUTH_SOCK` | Copy (or double-click) and export public keys, remove keys from the agent |
 
@@ -36,6 +38,11 @@ says exactly what will be removed.
 **Keyservers.** "Publish…" uploads a public key to a keyserver. By default landhorse uses
 the same keyservers as Seahorse (the `org.gnome.crypto.pgp` `keyservers` setting, which
 Ubuntu sets to `hkps://keyserver.ubuntu.com`); set `pgp.keyservers` to change them.
+
+**Signatures.** A key's Related items list the keys in your keyring that signed it (and
+that it signed). Names and signatures lists each name's signatures; double-click one to go
+to the signing key, or, if you don't have it, to search the keyservers for it in a pane
+below the details, where right-click imports it.
 
 **Revoking.** "Revoke…" in a key's right-click menu revokes it with a revocation
 certificate (choose a file, drop one, or paste it), which is checked against the key before

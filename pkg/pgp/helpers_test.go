@@ -2,6 +2,7 @@ package pgp_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -57,12 +58,58 @@ type fakeKeyserver struct {
 	URI      string
 	mu       sync.Mutex
 	uploaded []string
+	keys     []fakeKey
+}
+
+// fakeKey is a key the fake keyserver can find and serve.
+type fakeKey struct {
+	fingerprint, uid string
+	armored          []byte
+}
+
+func (ks *fakeKeyserver) add(fingerprint, uid string, armored []byte) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	ks.keys = append(ks.keys, fakeKey{fingerprint, uid, armored})
+}
+
+// lookup answers HKP index (machine-readable) and get requests.
+func (ks *fakeKeyserver) lookup(w http.ResponseWriter, r *http.Request) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	q := r.URL.Query()
+	search := strings.ToUpper(strings.TrimPrefix(strings.TrimPrefix(q.Get("search"), "0x"), "0X"))
+	var found []fakeKey
+	for _, k := range ks.keys {
+		if strings.HasSuffix(k.fingerprint, search) || strings.Contains(strings.ToUpper(k.uid), search) {
+			found = append(found, k)
+		}
+	}
+	if len(found) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	switch q.Get("op") {
+	case "index":
+		fmt.Fprintf(w, "info:1:%d\n", len(found))
+		for _, k := range found {
+			fmt.Fprintf(w, "pub:%s:22:256:1700000000::\nuid:%s:1700000000::\n", k.fingerprint, url.QueryEscape(k.uid))
+		}
+	case "get":
+		_, _ = w.Write(found[0].armored)
+	default:
+		http.NotFound(w, r)
+	}
 }
 
 func newFakeKeyserver(t *testing.T) *fakeKeyserver {
 	t.Helper()
 	ks := &fakeKeyserver{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/pks/lookup" {
+			ks.lookup(w, r)
+			return
+		}
 		if r.Method != http.MethodPost || r.URL.Path != "/pks/add" {
 			http.NotFound(w, r)
 			return

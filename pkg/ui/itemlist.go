@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,6 +23,11 @@ type itemList struct {
 	app    *App
 	view   *gtk.TreeView
 	scroll *gtk.ScrolledWindow
+	box    *gtk.Box
+
+	searchBar    *gtk.Box
+	searchField  *gtk.SearchEntry
+	searchTarget *gtk.ComboBoxText
 
 	store  *gtk.ListStore
 	filter *gtk.TreeModelFilter
@@ -83,10 +89,98 @@ func newItemList(app *App) (*itemList, error) {
 	l.scroll.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 	l.scroll.SetShadowType(gtk.SHADOW_IN)
 	l.scroll.Add(l.view)
+
+	if err := l.buildSearchBar(); err != nil {
+		return nil, err
+	}
+	l.box, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 6)
+	if err != nil {
+		return nil, err
+	}
+	l.box.PackStart(l.searchBar, false, false, 0)
+	l.box.PackStart(l.scroll, true, true, 0)
 	return l, nil
 }
 
-func (l *itemList) widget() gtk.IWidget { return l.scroll }
+func (l *itemList) widget() gtk.IWidget { return l.box }
+
+// buildSearchBar builds the bar shown above the list for categories that are searched,
+// such as keyservers: a search field, where to search, and a Search button.
+func (l *itemList) buildSearchBar() error {
+	var err error
+	l.searchBar, err = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 6)
+	if err != nil {
+		return err
+	}
+	l.searchBar.SetNoShowAll(true)
+	l.searchField, _ = gtk.SearchEntryNew()
+	l.searchField.SetHExpand(true)
+	l.searchField.Connect("activate", l.runSearch)
+	l.searchTarget, _ = gtk.ComboBoxTextNew()
+	button, _ := gtk.ButtonNewWithMnemonic("_Search")
+	button.Connect("clicked", l.runSearch)
+	l.searchBar.PackStart(l.searchField, true, true, 0)
+	l.searchBar.PackStart(l.searchTarget, false, false, 0)
+	l.searchBar.PackStart(button, false, false, 0)
+	return nil
+}
+
+// showSearchBar shows the search bar if cat is searched, set up for it.
+func (l *itemList) showSearchBar(cat backend.Category) {
+	searcher, ok := cat.(backend.KeySearcher)
+	if !ok {
+		l.searchBar.Hide()
+		return
+	}
+	l.searchField.SetPlaceholderText(searcher.SearchPlaceholder())
+	l.searchTarget.RemoveAll()
+	targets := searcher.SearchTargets()
+	if len(targets) > 1 {
+		l.searchTarget.Append("", "All keyservers")
+	}
+	for _, t := range targets {
+		l.searchTarget.Append(t.ID, t.Label)
+	}
+	l.searchTarget.SetActive(0)
+	l.searchBar.SetNoShowAll(false)
+	l.searchBar.ShowAll()
+	// After the click that selected the category, which would take focus back.
+	glib.IdleAdd(func() { l.searchField.GrabFocus() })
+}
+
+// runSearch searches the current category and lists the results.
+func (l *itemList) runSearch() {
+	searcher, ok := l.category.(backend.KeySearcher)
+	if !ok {
+		return
+	}
+	query, _ := l.searchField.GetText()
+	target := l.searchTarget.GetActiveID()
+	l.generation++
+	gen := l.generation
+	l.app.setStatus("Searching…")
+	l.app.background(func(ctx context.Context) func() {
+		items, problems, err := searcher.Search(ctx, query, target)
+		return func() {
+			if gen != l.generation {
+				return
+			}
+			if err != nil {
+				l.app.setStatus("")
+				l.app.showError("Search failed", err)
+				return
+			}
+			l.current = ""
+			l.fill(items)
+			msg := fmt.Sprintf("%s found for %q", plural(len(items), "key", "keys"), strings.TrimSpace(query))
+			if len(problems) > 0 {
+				msg += fmt.Sprintf(" (%d keyservers failed)", len(problems))
+				l.app.showError("Some keyservers couldn't be searched", errors.New(strings.Join(problems, "\n")))
+			}
+			l.app.setStatus(msg)
+		}
+	})
+}
 
 // selected returns the selected item, if any.
 func (l *itemList) selected() backend.Item {
@@ -131,6 +225,7 @@ func (l *itemList) load(cat backend.Category) {
 		l.want = ""
 	}
 	l.category = cat
+	l.showSearchBar(cat)
 	if cat == nil {
 		l.fill(nil)
 		l.app.setStatus("")

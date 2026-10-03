@@ -53,6 +53,7 @@ type Parent interface {
 //	gpg-keygrip:<KEYGRIP>      a PGP key or subkey keygrip, upper case hex
 //	ssh-private-key:<path>     the absolute path of an SSH private key file
 //	ssh-fingerprint:<SHA256:…> an SSH public key's SHA256 fingerprint
+//	gpg-keyid:<KEYID>          a PGP primary key's long key ID, upper case hex
 type Linkable interface {
 	Item
 	LinkKeys() []string
@@ -75,6 +76,17 @@ func (g AttributeGrouping) Label() string {
 		return g.Title
 	}
 	return g.Attribute
+}
+
+// Referrer is implemented by Linkable items that refer to other items in one direction,
+// such as a PGP key referring to the keys that signed it. An item is related to the items
+// whose link keys its references include, and to the items whose references include its
+// link keys. Unlike shared link keys, two items referring to the same item aren't related.
+type Referrer interface {
+	LinkReferences() []string
+	// ReferenceLabels describe the relation as listed under Related items: outgoing for
+	// an item this one refers to, incoming for an item referring to this one.
+	ReferenceLabels() (outgoing, incoming string)
 }
 
 // Column describes one column of the middle list.
@@ -131,6 +143,25 @@ type Field struct {
 type Table struct {
 	Columns []string
 	Rows    [][]string
+	// Links, if set, has one entry per row (nil for none): double-clicking the row
+	// follows it.
+	Links []*TableLink
+	// Children, if set, has one entry per row: rows nested beneath it, such as the
+	// signatures on a user ID.
+	Children [][]TableRow
+}
+
+// TableRow is a nested row in a Table.
+type TableRow struct {
+	Cells []string
+	Link  *TableLink
+}
+
+// TableLink is where double-clicking a table row goes: the item with LinkKey among its
+// link keys, or if there is none, a keyserver search for Search.
+type TableLink struct {
+	LinkKey string
+	Search  string
 }
 
 // Lockable is implemented by categories that can be locked and unlocked, such as keyrings.
@@ -275,6 +306,27 @@ type Crypter interface {
 	EncryptText(ctx context.Context, text string, trustAnyway bool) (string, error)
 	// SignText returns text clear-signed.
 	SignText(ctx context.Context, text string) (string, error)
+}
+
+// KeySearcher is implemented by categories whose items are the results of a search the
+// user runs, such as a keyserver search. The item list shows a search bar for them.
+type KeySearcher interface {
+	// SearchTargets are where a search can run, e.g. keyservers. Searching with an empty
+	// target searches all of them.
+	SearchTargets() []Choice
+	// SearchPlaceholder is the search field's hint text.
+	SearchPlaceholder() string
+	// Search runs a search and remembers its results as the category's items. problems
+	// lists targets that failed when others succeeded.
+	Search(ctx context.Context, query, target string) (items []Item, problems []string, err error)
+}
+
+// RemoteImporter is implemented by items found elsewhere, such as on a keyserver, that can
+// be imported into the local store.
+type RemoteImporter interface {
+	ImportLabel() string
+	// ImportToLocal imports the item and returns a report.
+	ImportToLocal(ctx context.Context) (string, error)
 }
 
 // Deleter is implemented by items that can be deleted.

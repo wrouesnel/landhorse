@@ -212,6 +212,9 @@ func (a *App) popupItemMenu(ev *gdk.Event) {
 	if ok, label := canCryptText(item); label != "" {
 		add(label, ok, a.actionCryptText)
 	}
+	if importer, ok := item.(backend.RemoteImporter); ok {
+		add("_"+importer.ImportLabel(), true, func() { a.importRemote(importer) })
+	}
 	sep, _ := gtk.SeparatorMenuItemNew()
 	menu.Append(sep)
 	add("_Delete", canDelete, a.actionDelete)

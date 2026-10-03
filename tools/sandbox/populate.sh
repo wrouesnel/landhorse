@@ -52,7 +52,16 @@ sed 's/^:-----BEGIN/-----BEGIN/' "$other/openpgp-revocs.d/$dave.rev" > "$STATE/d
 erin=$(gpg --homedir "$other" --with-colons --list-keys erin@example.net | awk -F: '/^fpr/{print $10; exit}')
 cp "$other/openpgp-revocs.d/$erin.rev" "$HOME/erin.rev"
 og --import "$STATE/dave.rev"
-gpg --homedir "$other" --armor --export > "$HOME/others.asc"
+# Frank isn't imported: his key is only on the fake keyserver, and he has signed Bob's key,
+# so double-clicking his signature searches the keyserver.
+og --quick-generate-key "Frank Faraway <frank@faraway.example>" future-default default never
+frank=$(gpg --homedir "$other" --with-colons --list-keys frank@faraway.example | awk -F: '/^fpr/{print $10; exit}')
+og -u "$frank" --yes --quick-sign-key \
+    "$(gpg --homedir "$other" --with-colons --list-keys bob@example.org | awk -F: '/^fpr/{print $10; exit}')"
+mkdir -p "$STATE/published"
+gpg --homedir "$other" --armor --export "$frank" > "$STATE/published/frank.asc"
+gpg --homedir "$other" --armor --export bob@example.org erin@example.net carol@example.net dave@example.net \
+    > "$HOME/others.asc"
 gpgconf --homedir "$other" --kill all; rm -rf "$other" "$STATE/dave.rev"
 quiet gpg --batch --import "$HOME/others.asc"
 quiet gpg "${nopass[@]}" --yes --quick-sign-key \
