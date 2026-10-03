@@ -1417,3 +1417,36 @@ func DebTest() error {
 	}
 	return nil
 }
+
+// fedoraReleases are the Fedora releases RPMs are built for. Keep in step with RELEASES in
+// tools/rpm/build.sh.
+//
+//nolint:gochecknoglobals
+var fedoraReleases = []string{"43", "44"}
+
+// Rpm builds source and binary RPMs for every supported Fedora release, in containers, into
+// dist/rpm/fedora-<version>/. See tools/rpm/build.sh.
+func Rpm() error {
+	for _, release := range fedoraReleases {
+		if err := RpmRelease(release); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RpmRelease builds source and binary RPMs for one Fedora release, e.g. "43".
+func RpmRelease(release string) error {
+	return sh.RunV(path.Join(curDir, "tools", "rpm", "build.sh"), release)
+}
+
+// RpmTest checks, in a container of each Fedora release, that the built RPM replaces
+// seahorse without breaking packages that require it. Run Rpm first.
+func RpmTest() error {
+	for _, release := range fedoraReleases {
+		if err := sh.RunV(path.Join(curDir, "tools", "rpm", "install-test.sh"), release); err != nil {
+			return err
+		}
+	}
+	return nil
+}

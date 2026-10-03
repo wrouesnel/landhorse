@@ -67,6 +67,30 @@ so packages depending on seahorse keep working. Supported releases are listed in
   stay at `go 1.24.x`, and dependencies can't be upgraded to versions whose `go.mod` needs
   newer Go. Check with `go list -m -json all` before upgrading.
 
+## Fedora packages and releases
+
+`packaging/rpm/landhorse.spec.in` is the RPM spec template; `tools/rpm/build.sh` fills in
+the version (from `debian/changelog`) and the vendored modules' `bundled()` Provides, and
+builds in Fedora containers (`go run mage.go rpm`, `rpmRelease 43`, `rpmTest`). The RPM
+Provides `seahorse = 47.0.1` and Conflicts with seahorse (not Obsoletes, so enabling the
+COPR never swaps Seahorse by itself). Supported releases are listed in `tools/rpm/build.sh`
+and `magefile.go` (`fedoraReleases`); keep them in step.
+
+To release:
+
+1. Add a `debian/changelog` entry for the new version (`dch -v X.Y.Z`), which also sets the
+   RPM version, and commit it.
+2. Tag the commit `vX.Y.Z` once CI is green, and push the tag.
+3. `.github/workflows/release.yml` then builds the binary archives for the GitHub Release,
+   signs and uploads the Ubuntu source packages to `ppa:w-rouesnel/landhorse` (Launchpad
+   builds them), and submits the source RPM to COPR `wrouesnel/landhorse`. A manual run of
+   the workflow builds and signs without uploading unless asked.
+
+It needs these repository secrets and variables (see `CLAUDE.md` before setting them):
+`PACKAGE_SIGNING_KEY`, `PACKAGE_SIGNING_KEY_PASSPHRASE` and the variable
+`PACKAGE_SIGNING_KEY_FINGERPRINT` for the PPA, and `COPR_CONFIG` (a copr-cli config with
+an API token) for COPR.
+
 ## Web interface
 
 A web interface is optional. If `web/package.json` exists, the build installs the Node.js

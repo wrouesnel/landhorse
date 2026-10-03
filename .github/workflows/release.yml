@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - v*
+  # A manual run builds and signs the packages without uploading them, unless asked.
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to the PPA and COPR (otherwise build and sign only)"
+        type: boolean
+        default: false
 
 jobs:
   integration:
@@ -88,3 +95,98 @@ jobs:
         with:
           files: |
             release/*
+
+  # Ubuntu packages are published only through the PPA, which builds them from the signed
+  # source packages, never as GitHub Release assets.
+  ppa:
+    needs:
+      - integration
+    runs-on: ubuntu-24.04
+    env:
+      PPA: ppa:w-rouesnel/landhorse
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends devscripts dput gnupg
+      - name: Check the tag against debian/changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(dpkg-parsechangelog -S Version)
+          [ "$version" = "${GITHUB_REF_NAME#v}" ] || {
+            echo "::error::tag $GITHUB_REF_NAME but debian/changelog is $version"; exit 1; }
+      - name: Import the signing key
+        env:
+          PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+          PACKAGE_SIGNING_KEY_PASSPHRASE: ${{ secrets.PACKAGE_SIGNING_KEY_PASSPHRASE }}
+          FPR: ${{ vars.PACKAGE_SIGNING_KEY_FINGERPRINT }}
+        run: |
+          [ -n "$PACKAGE_SIGNING_KEY" ] && [ -n "$FPR" ] ||
+            { echo "::error::PACKAGE_SIGNING_KEY or PACKAGE_SIGNING_KEY_FINGERPRINT is not set"; exit 1; }
+          gpg --batch --import <<<"$PACKAGE_SIGNING_KEY"
+          gpg --list-secret-keys "$FPR" >/dev/null
+          # Hand the passphrase to gpg-agent over stdin (no file, no pinentry on a runner),
+          # so signing needs no passphrase.
+          echo allow-preset-passphrase >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent
+          for grip in $(gpg --with-keygrip --with-colons -K "$FPR" | awk -F: '/^grp/ {print $10}'); do
+            /usr/lib/gnupg/gpg-preset-passphrase --preset "$grip" <<<"$PACKAGE_SIGNING_KEY_PASSPHRASE"
+          done
+          echo "KEYID=$FPR" >> "$GITHUB_ENV"
+      - name: Build and sign source packages
+        run: |
+          for series in noble resolute; do
+            SOURCE_ONLY=1 tools/debian/build.sh "$series"
+          done
+          debsign -k"$KEYID" dist/deb/*/landhorse_*_source.changes
+          for c in dist/deb/*/landhorse_*_source.changes; do gpg --verify "$c"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppa-source
+          path: |
+            dist/deb/*/*.dsc
+            dist/deb/*/*.tar.*
+            dist/deb/*/*_source.*
+      - name: Upload to ${{ env.PPA }}
+        if: startsWith(github.ref, 'refs/tags/') || inputs.upload
+        run: dput "$PPA" dist/deb/*/landhorse_*_source.changes
+
+  # Fedora packages are published only through COPR, which builds the source RPM for each
+  # of the project's Fedora releases.
+  copr:
+    needs:
+      - integration
+    runs-on: ubuntu-24.04
+    env:
+      COPR_PROJECT: wrouesnel/landhorse
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the source RPM
+        run: SRPM_ONLY=1 tools/rpm/build.sh 43
+      - uses: actions/upload-artifact@v4
+        with:
+          name: copr-source
+          path: dist/rpm/fedora-43/*.src.rpm
+      - name: Submit to COPR ${{ env.COPR_PROJECT }}
+        if: startsWith(github.ref, 'refs/tags/') || inputs.upload
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          [ -n "$COPR_CONFIG" ] || { echo "::error::COPR_CONFIG is not set"; exit 1; }
+          pipx install copr-cli
+          mkdir -p ~/.config
+          printf '%s\n' "$COPR_CONFIG" > ~/.config/copr
+          chmod 600 ~/.config/copr
+          copr-cli build "$COPR_PROJECT" dist/rpm/fedora-43/landhorse-*.src.rpm
+

@@ -7,7 +7,8 @@
 # 0.1.0~ubuntu24.04.1. It is then built in a container of that release, which also runs
 # the tests and lintian. Results land in dist/deb/SERIES/.
 #
-# The source package is unsigned. To upload to a PPA:
+# With SOURCE_ONLY=1 only the source package is built (for uploading; Launchpad builds the
+# binaries). The source package is unsigned. To upload to a PPA:
 #   debsign -k<fingerprint> dist/deb/SERIES/*_source.changes
 #   dput ppa:<you>/<ppa> dist/deb/SERIES/*_source.changes
 set -euo pipefail
@@ -42,13 +43,14 @@ git ls-files -z --cached --others --exclude-standard | xargs -0 cp --parents -P 
 } > "$src/debian/changelog"
 
 podman run --rm -v "$out:/build:Z" -w "/build/landhorse-$version" \
-    -e DEBIAN_FRONTEND=noninteractive "docker.io/library/ubuntu:$release" bash -euc '
+    -e DEBIAN_FRONTEND=noninteractive -e SOURCE_ONLY="${SOURCE_ONLY:-}" "docker.io/library/ubuntu:$release" bash -euc '
         apt-get update -qq
         apt-get install -qq -y --no-install-recommends dpkg-dev lintian >/dev/null
         apt-get build-dep -qq -y --no-install-recommends ./ >/dev/null
         dpkg-buildpackage -S -d -us -uc
+        [ -n "$SOURCE_ONLY" ] && exit 0
         dpkg-buildpackage -b -us -uc
         cd /build
         lintian --info --display-info --no-tag-display-limit *.changes || true
     '
-ls -1 "$out"/*.deb "$out"/*.dsc
+ls -1 "$out"/*.dsc "$out"/*.deb 2>/dev/null || true

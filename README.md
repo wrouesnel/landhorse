@@ -67,30 +67,40 @@ go run mage.go binary
 
 The first build compiles the GTK bindings and takes a couple of minutes.
 
-## Ubuntu packages
+## Installing
+
+landhorse replaces Seahorse: installing it removes the seahorse package, and it provides
+`seahorse` (the package, the `seahorse` command, and Seahorse's desktop ID and settings
+schema), so packages that depend on seahorse stay installed and keep working.
+
+**Ubuntu 24.04 and 26.04** — from the PPA at https://launchpad.net/~w-rouesnel/+archive/ubuntu/landhorse:
 
 ```sh
-go run mage.go deb                 # all supported releases
-go run mage.go debSeries noble     # one release: noble (24.04) or resolute (26.04)
+sudo add-apt-repository ppa:w-rouesnel/landhorse
+sudo apt install landhorse
 ```
 
-This builds source and binary packages in podman containers of each release, runs the
-tests and lintian, and writes them to `dist/deb/<series>/`. `go run mage.go debTest`
-then checks that installing the package replaces seahorse cleanly. The `landhorse` package
-replaces `seahorse`: installing it removes seahorse, and it provides the `seahorse` command
-and package so that desktop metapackages, LibreOffice and other packages that depend on
-seahorse stay installed and working.
-
-**Package repository:** none yet. Packages are not attached to GitHub Releases (those
-carry only the binary archives); they will be published through a PPA, and this section
-will give its URL and the commands to add it and install landhorse.
-
-To publish to a Launchpad PPA, sign and upload each release's source package:
+**Fedora 43 and 44** — from COPR at https://copr.fedorainfracloud.org/coprs/wrouesnel/landhorse/:
 
 ```sh
-debsign -k<fingerprint> dist/deb/noble/*_source.changes
-dput ppa:<you>/<ppa> dist/deb/noble/*_source.changes
+sudo dnf copr enable wrouesnel/landhorse
+sudo dnf install --allowerasing landhorse
 ```
+
+`--allowerasing` lets dnf remove seahorse, which landhorse conflicts with. Enabling the
+repository alone never replaces seahorse.
+
+## Building packages
+
+```sh
+go run mage.go deb && go run mage.go debTest   # Ubuntu: dist/deb/<series>/
+go run mage.go rpm && go run mage.go rpmTest   # Fedora: dist/rpm/fedora-<version>/
+```
+
+These build in podman containers of each release, run the tests and lintian or rpmlint,
+and check that installing the package replaces seahorse without breaking packages that
+depend on it. CI does the same on every push and pull request. Releases are published by
+the release workflow on version tags; packages are never attached to GitHub Releases.
 
 ## Usage
 

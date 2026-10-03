@@ -100,3 +100,24 @@ jobs:
         run: go run mage.go debSeries ${{ matrix.series }}
       - name: Check the package replaces seahorse
         run: tools/debian/install-test.sh ${{ matrix.series }}
+
+  # Fedora RPMs, built and install-tested the same way.
+  rpms:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora:
+          - "43"
+          - "44"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build Fedora RPMs
+        run: go run mage.go rpmRelease ${{ matrix.fedora }}
+      - name: Check the package replaces seahorse
+        run: tools/rpm/install-test.sh ${{ matrix.fedora }}

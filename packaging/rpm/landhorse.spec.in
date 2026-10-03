@@ -1,0 +1,108 @@
+# landhorse RPM, built by tools/rpm/build.sh from this template, which fills in the
+# version from debian/changelog and a bundled() Provides for each vendored Go module.
+%global goipath github.com/wrouesnel/landhorse
+# Seahorse's version in Fedora when this was written; Provides at least this, so packages
+# requiring a recent seahorse are satisfied.
+%global seahorse_version 47.0.1
+
+Name:           landhorse
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Manage passwords, keyrings, PGP and SSH keys
+
+# landhorse is GPL-2.0-or-later; the binary links vendored modules under the licenses
+# below (see debian/copyright), including zax (GPL-3.0-only), so it is distributed under
+# GPL-3.0 terms as a whole.
+License:        GPL-2.0-or-later AND GPL-3.0-only AND MIT AND BSD-2-Clause AND BSD-3-Clause AND Apache-2.0 AND ISC AND LicenseRef-Fedora-Public-Domain
+Source0:        %{name}-%{version}.tar.gz
+
+ExclusiveArch:  %{golang_arches_future}
+BuildRequires:  golang >= 1.24
+BuildRequires:  go-rpm-macros
+BuildRequires:  gcc
+BuildRequires:  gtk3-devel
+BuildRequires:  desktop-file-utils
+BuildRequires:  libappstream-glib
+# For the tests.
+BuildRequires:  gnupg2
+
+Requires:       gnupg2
+Recommends:     gnome-keyring
+Recommends:     gnutls-utils
+Recommends:     fido2-tools
+Recommends:     openssh-clients
+Recommends:     glib2
+Suggests:       opensc
+Suggests:       pcsc-lite
+
+# landhorse replaces Seahorse: it installs the seahorse command, a hidden
+# org.gnome.seahorse.Application desktop entry and Seahorse's org.gnome.seahorse schema, so
+# packages requiring seahorse (such as nemo-seahorse) keep working. It conflicts rather
+# than obsoletes, so enabling the repository never replaces Seahorse by itself.
+Provides:       seahorse = %{seahorse_version}
+Conflicts:      seahorse
+
+@BUNDLED_PROVIDES@
+
+%description
+Landhorse is a replacement for GNOME's Passwords and Keys (Seahorse) with a
+conventional desktop layout: a menu bar and labelled toolbar over three panes,
+showing the type of thing, a sortable list of that type, and the details of
+the selected item.
+
+It shows the passwords in your keyrings through the Secret Service (such as
+gnome-keyring), your GnuPG and OpenSSH keys, smart cards and passkeys. Keys
+can be imported, exported, published to keyservers and revoked.
+
+%prep
+%autosetup
+
+%build
+export GOFLAGS="-mod=vendor -trimpath -buildvcs=false" GOTOOLCHAIN=local GOPROXY=off
+export CGO_ENABLED=1 CGO_CFLAGS="%{optflags}" CGO_CXXFLAGS="%{optflags}" CGO_LDFLAGS="%{build_ldflags}"
+# PIE, linked by the system linker with Fedora's hardening flags and a build ID.
+go build -buildmode=pie \
+    -ldflags "-X %{goipath}/version.Version=%{version} -linkmode=external -extldflags '%{build_ldflags}'" \
+    -o build/landhorse ./cmd/landhorse
+
+%install
+install -D -m0755 build/landhorse %{buildroot}%{_bindir}/landhorse
+ln -s landhorse %{buildroot}%{_bindir}/seahorse
+install -D -m0644 data/io.github.wrouesnel.landhorse.desktop \
+    %{buildroot}%{_datadir}/applications/io.github.wrouesnel.landhorse.desktop
+install -D -m0644 data/org.gnome.seahorse.Application.desktop \
+    %{buildroot}%{_datadir}/applications/org.gnome.seahorse.Application.desktop
+install -D -m0644 data/io.github.wrouesnel.landhorse.svg \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.wrouesnel.landhorse.svg
+install -D -m0644 data/io.github.wrouesnel.landhorse.metainfo.xml \
+    %{buildroot}%{_metainfodir}/io.github.wrouesnel.landhorse.metainfo.xml
+install -D -m0644 data/org.gnome.seahorse.gschema.xml \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/org.gnome.seahorse.gschema.xml
+install -D -m0644 data/landhorse.1 %{buildroot}%{_mandir}/man1/landhorse.1
+ln -s landhorse.1 %{buildroot}%{_mandir}/man1/seahorse.1
+# Apache-2.0 requires vendored modules' NOTICE files to be passed on.
+(cd vendor && find . -name NOTICE -type f -exec install -D -m0644 {} %{buildroot}%{_docdir}/%{name}/notices/{} \;)
+
+%check
+desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
+appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
+export GOFLAGS="-mod=vendor -buildvcs=false" GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1
+# The tests make disposable GnuPG homes under a throwaway HOME.
+HOME=$(mktemp -d) go test ./pkg/...
+
+%files
+%license LICENSE debian/copyright
+%doc README.md
+%{_docdir}/%{name}/notices/
+%{_bindir}/landhorse
+%{_bindir}/seahorse
+%{_datadir}/applications/io.github.wrouesnel.landhorse.desktop
+%{_datadir}/applications/org.gnome.seahorse.Application.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.wrouesnel.landhorse.svg
+%{_metainfodir}/io.github.wrouesnel.landhorse.metainfo.xml
+%{_datadir}/glib-2.0/schemas/org.gnome.seahorse.gschema.xml
+%{_mandir}/man1/landhorse.1*
+%{_mandir}/man1/seahorse.1*
+
+%changelog
+@CHANGELOG@
