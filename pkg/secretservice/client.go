@@ -261,3 +261,42 @@ func (c *Client) runPrompt(ctx context.Context, prompt dbus.ObjectPath) error {
 		}
 	}
 }
+
+// ReadAlias returns the collection an alias such as "default" or "login" refers to, or ""
+// if the alias isn't set.
+func (c *Client) ReadAlias(name string) (dbus.ObjectPath, error) {
+	var path dbus.ObjectPath
+	if err := c.service().Call(ifService+".ReadAlias", 0, name).Store(&path); err != nil {
+		return "", err
+	}
+	if path == noPrompt {
+		return "", nil
+	}
+	return path, nil
+}
+
+// SearchItems finds the items in all collections whose attributes include attrs.
+func (c *Client) SearchItems(attrs map[string]string) ([]dbus.ObjectPath, error) {
+	var unlocked, locked []dbus.ObjectPath
+	if err := c.service().Call(ifService+".SearchItems", 0, attrs).Store(&unlocked, &locked); err != nil {
+		return nil, err
+	}
+	return append(unlocked, locked...), nil
+}
+
+// CreateItem stores a text secret in a collection, replacing an item with the same
+// attributes. The collection must be unlocked.
+func (c *Client) CreateItem(ctx context.Context, collection dbus.ObjectPath, label string,
+	attrs map[string]string, value []byte) error {
+	props := map[string]dbus.Variant{
+		ifItem + ".Label":      dbus.MakeVariant(label),
+		ifItem + ".Attributes": dbus.MakeVariant(attrs),
+	}
+	s := secret{Session: c.session, Parameters: []byte{}, Value: value, ContentType: "text/plain; charset=utf8"}
+	var item, prompt dbus.ObjectPath
+	if err := c.conn.Object(busName, collection).Call(ifCollection+".CreateItem", 0, props, s, true).
+		Store(&item, &prompt); err != nil {
+		return err
+	}
+	return c.runPrompt(ctx, prompt)
+}

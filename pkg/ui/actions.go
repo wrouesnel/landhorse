@@ -21,7 +21,7 @@ type toolbar struct {
 
 // menuItems are the menu entries whose sensitivity follows the selection.
 type menuItems struct {
-	importItem, export, publish, revoke, copy, del, unlock, lock *gtk.MenuItem
+	importItem, export, publish, revoke, passphrase, copy, del, unlock, lock *gtk.MenuItem
 }
 
 //nolint:gochecknoglobals // set once by buildMenuBar, read by updateActions
@@ -155,6 +155,7 @@ func (a *App) buildMenuBar(accel *gtk.AccelGroup) (*gtk.MenuBar, error) {
 	menus.copy = addItem(edit, "_Copy Password or Key", 0, 0, a.actionCopy)
 	menus.del = addItem(edit, "_Delete", 0, 0, a.actionDelete)
 	menus.revoke = addItem(edit, "Re_voke Key…", 0, 0, a.actionRevoke)
+	menus.passphrase = addItem(edit, "C_hange Passphrase…", 0, 0, a.actionChangePassphrase)
 	addSeparator(edit)
 	menus.unlock = addItem(edit, "_Unlock Keyring", 0, 0, a.actionUnlock)
 	menus.lock = addItem(edit, "_Lock Keyring", gdk.KEY_l, gdk.CONTROL_MASK, a.actionLock)
@@ -199,9 +200,14 @@ func (a *App) popupItemMenu(ev *gdk.Event) {
 	_, canDelete := item.(backend.Deleter)
 	add(copyLabel, canCopy, a.actionCopy)
 	add("_Export…", canExport, a.actionExport)
-	add("_Publish…", canPublish(item), a.actionPublish)
+	if _, ok := item.(backend.Publisher); ok {
+		add("_Publish…", canPublish(item), a.actionPublish)
+	}
 	if _, ok := item.(backend.Revoker); ok {
 		add("Re_voke…", canRevoke(item), a.actionRevoke)
+	}
+	if _, ok := item.(backend.PassphraseChanger); ok {
+		add("C_hange Passphrase…", canChangePassphrase(item), a.actionChangePassphrase)
 	}
 	sep, _ := gtk.SeparatorMenuItemNew()
 	menu.Append(sep)
@@ -239,6 +245,7 @@ func (a *App) updateActions() {
 	set(canExport, a.toolbar.export, menus.export)
 	set(canPublish(item), a.toolbar.publish, menus.publish)
 	set(canRevoke(item), menus.revoke)
+	set(canChangePassphrase(item), menus.passphrase)
 	set(canDelete, a.toolbar.del, menus.del)
 
 	if copier, ok := item.(backend.Copier); ok {

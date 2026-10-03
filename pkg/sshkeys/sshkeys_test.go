@@ -1,16 +1,19 @@
 package sshkeys_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
+	"errors"
 	"testing"
 
 	"github.com/chigopher/pathlib"
 	"github.com/spf13/afero"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/wrouesnel/landhorse/pkg/backend"
 	"github.com/wrouesnel/landhorse/pkg/sshkeys"
 )
 
@@ -138,5 +141,69 @@ func TestDelete(t *testing.T) {
 		if ok, _ := afero.Exists(fs, p); ok {
 			t.Errorf("%s still exists", p)
 		}
+	}
+}
+
+func TestChangePassphrase(t *testing.T) {
+	ctx := context.Background()
+	fs := afero.NewMemMapFs()
+	enc := newKey(t, "me@work", "old secret")
+	plain := newKey(t, "me@laptop", "")
+	write(t, fs, "/ssh/work", enc.private)
+	write(t, fs, "/ssh/work.pub", enc.public)
+	write(t, fs, "/ssh/laptop", plain.private)
+
+	items, err := (&sshkeys.Category{Dir: pathlib.NewPath("/ssh", pathlib.PathWithAfero(fs))}).Items(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]*sshkeys.Item{}
+	for _, it := range items {
+		byName[it.Key()] = it.(*sshkeys.Item) //nolint:forcetypeassert
+	}
+	work, laptop := byName["work"], byName["laptop"]
+	if !work.HasPassphrase() || laptop.HasPassphrase() {
+		t.Fatalf("HasPassphrase: work %v laptop %v", work.HasPassphrase(), laptop.HasPassphrase())
+	}
+
+	if err := work.ChangePassphrase(ctx, "wrong", "new secret"); !errors.Is(err, backend.ErrWrongPassphrase) {
+		t.Fatalf("wrong current passphrase: got %v", err)
+	}
+	if data, _ := afero.ReadFile(fs, "/ssh/work"); !bytes.Equal(data, enc.private) {
+		t.Fatal("a failed change modified the key file")
+	}
+
+	for _, c := range []struct {
+		item    *sshkeys.Item
+		path    string
+		current string
+		pub     ssh.PublicKey
+	}{{work, "/ssh/work", "old secret", enc.pub}, {laptop, "/ssh/laptop", "", plain.pub}} {
+		if err := c.item.ChangePassphrase(ctx, c.current, "new secret"); err != nil {
+			t.Fatalf("%s: %v", c.path, err)
+		}
+		data, _ := afero.ReadFile(fs, c.path)
+		signer, err := ssh.ParsePrivateKeyWithPassphrase(data, []byte("new secret"))
+		if err != nil {
+			t.Fatalf("%s doesn't open with the new passphrase: %v", c.path, err)
+		}
+		if !bytes.Equal(signer.PublicKey().Marshal(), c.pub.Marshal()) {
+			t.Errorf("%s holds a different key", c.path)
+		}
+		if _, err := ssh.ParsePrivateKey(data); err == nil {
+			t.Errorf("%s opens without a passphrase", c.path)
+		}
+		if info, _ := fs.Stat(c.path); info.Mode().Perm() != 0o600 {
+			t.Errorf("%s mode %v, want 0600", c.path, info.Mode().Perm())
+		}
+	}
+	if left, _ := afero.Glob(fs, "/ssh/.*"); len(left) != 0 {
+		t.Errorf("temporary files left behind: %v", left)
+	}
+
+	label, attrs, lookup := work.SavedPassphrase()
+	if label != "Unlock password for: me@work" || attrs["unique"] != "ssh-store:/ssh/work" ||
+		lookup["unique"] != "ssh-store:/ssh/work" || len(lookup) != 1 {
+		t.Errorf("SavedPassphrase: %q %v %v", label, attrs, lookup)
 	}
 }

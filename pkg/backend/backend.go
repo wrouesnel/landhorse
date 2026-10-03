@@ -13,6 +13,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -224,6 +225,36 @@ type SecretExporter interface {
 	// the result is encrypted with it; an empty password exports it unencrypted. It may
 	// prompt for the item's own passphrase.
 	ExportSecret(ctx context.Context, password string) ([]byte, error)
+}
+
+// PassphraseChanger is implemented by items protected by a passphrase that can be changed,
+// such as SSH private keys.
+type PassphraseChanger interface {
+	// CanChangePassphrase reports whether the item has something to protect.
+	CanChangePassphrase() bool
+	// HasPassphrase reports whether a passphrase is currently set.
+	HasPassphrase() bool
+	// ChangePassphrase replaces the passphrase. current is ignored if there is none. It
+	// returns ErrWrongPassphrase if current is wrong.
+	ChangePassphrase(ctx context.Context, current, replacement string) error
+	// SavedPassphrase describes the SecretStore entry that unlocks the item automatically:
+	// its label, the attributes to store it with, and the attributes that find it.
+	SavedPassphrase() (label string, attrs, lookup map[string]string)
+}
+
+// ErrWrongPassphrase is returned when a passphrase doesn't unlock an item.
+var ErrWrongPassphrase = errors.New("the passphrase is wrong")
+
+// SecretStore saves secrets, such as passphrases, where the desktop unlocks them at login.
+type SecretStore interface {
+	// StoreName describes where secrets go, e.g. "login keyring".
+	StoreName() string
+	// StoreSecret saves a secret, replacing one with the same attributes.
+	StoreSecret(ctx context.Context, label string, attrs map[string]string, secret string) error
+	// CountSecrets counts the saved secrets whose attributes include attrs.
+	CountSecrets(ctx context.Context, attrs map[string]string) (int, error)
+	// DeleteSecrets deletes the saved secrets whose attributes include attrs.
+	DeleteSecrets(ctx context.Context, attrs map[string]string) (int, error)
 }
 
 // Deleter is implemented by items that can be deleted.

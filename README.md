@@ -18,7 +18,7 @@ conventional desktop layout:
 |---|---|---|
 | Passwords → each keyring | The Secret Service D-Bus API (gnome-keyring, KeePassXC) | Show and copy passwords, delete, lock and unlock keyrings |
 | PGP Keys → GnuPG keys → Private keys / Public keys → each email address | The `gpg` command (`--with-colons`) | Copy, export or publish public keys, import, revoke, delete |
-| Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, delete key pairs |
+| Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, change passphrases (saving them in the login keyring), delete key pairs |
 | Secure Shell → SSH agent | The agent at `$SSH_AUTH_SOCK` | Copy (or double-click) and export public keys, remove keys from the agent |
 
 Keyrings also group their passwords: network passwords by host, plus any attributes you

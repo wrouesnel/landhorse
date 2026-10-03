@@ -37,6 +37,9 @@ type Options struct {
 	ConfigPath string
 	// Settings reads and saves the preferences shown in Edit → Preferences. Nil hides it.
 	Settings Settings
+	// SecretStore saves passphrases so the desktop unlocks keys at login. Nil hides the
+	// option.
+	SecretStore backend.SecretStore
 }
 
 // Settings is what the preferences dialog edits.

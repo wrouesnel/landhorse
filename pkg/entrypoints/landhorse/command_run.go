@@ -51,6 +51,7 @@ func (r *RunCmd) Run(ctx context.Context, cli *CLIConfig, config *EntrypointConf
 		InitialCategory: r.Category,
 		ConfigPath:      cli.ConfigFile.String(),
 		Settings:        prefs,
+		SecretStore:     secretStore(prefs),
 	})
 }
 
@@ -111,6 +112,14 @@ func listCategory(ctx context.Context, out io.Writer, cat backend.Category, dept
 		}
 	}
 	return failed
+}
+
+// secretStore is the Secret Service, if enabled, as somewhere to save passphrases.
+func secretStore(prefs *settings) backend.SecretStore {
+	if prefs.passwords == nil {
+		return nil
+	}
+	return prefs.passwords
 }
 
 // buildGroups creates the enabled backends. The returned function releases them.
