@@ -14,6 +14,7 @@ Summary:        Manage passwords, keyrings, PGP and SSH keys
 # below (see debian/copyright), including zax (GPL-3.0-only), so it is distributed under
 # GPL-3.0 terms as a whole.
 License:        GPL-2.0-or-later AND GPL-3.0-only AND MIT AND BSD-2-Clause AND BSD-3-Clause AND Apache-2.0 AND ISC AND LicenseRef-Fedora-Public-Domain
+URL:            https://github.com/wrouesnel/landhorse
 Source0:        %{name}-%{version}.tar.gz
 
 ExclusiveArch:  %{golang_arches_future}

@@ -22,6 +22,8 @@
         public keys</li>
     </ul>
   </description>
+  <url type="homepage">https://github.com/wrouesnel/landhorse</url>
+  <url type="bugtracker">https://github.com/wrouesnel/landhorse/issues</url>
   <launchable type="desktop-id">io.github.wrouesnel.landhorse.desktop</launchable>
   <replaces>
     <id>org.gnome.seahorse.Application</id>

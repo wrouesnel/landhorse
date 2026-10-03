@@ -2,19 +2,25 @@
 
 Read `AGENTS.md` for the project's conventions, build commands and UI testing sandbox.
 
-## Release signing (not set up yet)
+## Approved GPG key exception: release signing (approved 2026-10-04)
 
-The release workflow signs PPA uploads with a key from the repository secrets
-`PACKAGE_SIGNING_KEY` and `PACKAGE_SIGNING_KEY_PASSPHRASE` (fingerprint in the variable
-`PACKAGE_SIGNING_KEY_FINGERPRINT`), following the user's ks3fs project, and uploads to COPR
-with the secret `COPR_CONFIG`. On 2026-10-04 the user chose CI publishing on version tags;
-the repository isn't on GitHub yet, so no secret has been set and no key exported.
+PPA uploads are signed in CI with the user's shared Launchpad signing key. The user approved
+exporting it to this repository's CI secrets on 2026-10-04 ("Launchpad signing key").
 
-Which key goes into those secrets needs the user's explicit approval at the time: ks3fs
-uses their shared Launchpad key (`2A12 8435 A6FE 8BD7 51AA 5787 2095 9AB8 0709 6ADB`), and
-its approval covers only ks3fs's secrets. Once approved, record the key and the secrets
-here, and set them by piping (`gpg --export-secret-keys --armor FPR | gh secret set
-PACKAGE_SIGNING_KEY`), never through a file. The passphrase comes from the login keyring.
+- Key: `2A12 8435 A6FE 8BD7 51AA 5787 2095 9AB8 0709 6ADB`, "Will Rouesnel (GPG key for launchpad
+  signing)", registered on Launchpad as `~w-rouesnel`; here for `ppa:w-rouesnel/landhorse`.
+- It is exported only to the GitHub repository secrets `PACKAGE_SIGNING_KEY` and
+  `PACKAGE_SIGNING_KEY_PASSPHRASE` of `wrouesnel/landhorse`, with the fingerprint in the
+  repository variable `PACKAGE_SIGNING_KEY_FINGERPRINT`. They were set by piping from gpg
+  and the login keyring into `gh secret set`, never through a file. The release workflow uses
+  them to sign source uploads on version tags.
+- The passphrase lives in the login keyring and is looked up only as
+  `secret-tool lookup service gpg-passphrase fingerprint 2A128435A6FE8BD751AA578720959AB807096ADB`.
+  Never print it.
+- COPR uploads use the secret `COPR_CONFIG`, a copy of the user's `~/.config/copr` (API token
+  for COPR user `wrouesnel`), approved the same day.
+- This exception covers that key and those secrets only. Any other export of a release key
+  still needs the user's approval first.
 
 ## Exception to the global GPG key rules (approved 2026-10-03)
 
