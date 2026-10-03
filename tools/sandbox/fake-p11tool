@@ -1,0 +1,22 @@
+#!/bin/bash
+# fake-p11tool - answers like GnuTLS's p11tool for the sandbox: the system trust store, an
+# uninitialised TPM (both left out by landhorse), and a PIV card with one certificate.
+# The certificate is $LANDHORSE_SANDBOX_STATE/piv-cert.pem, made by populate.sh.
+cert="$LANDHORSE_SANDBOX_STATE/piv-cert.pem"
+case "$*" in
+"--batch --list-tokens")
+	printf 'Token 0:\n\tURL: pkcs11:model=p11-kit-trust\n\tLabel: System Trust\n\tType: Trust module\n\tFlags: uPIN uninitialized\n\tManufacturer: PKCS#11 Kit\n\tModel: p11-kit-trust\n\n'
+	printf 'Token 1:\n\tURL: pkcs11:model=AMD\n\tLabel: \n\tType: Hardware token\n\tFlags: RNG, Requires login, Uninitialized, uPIN uninitialized\n\tManufacturer: AMD\n\tModel: AMD\n\n'
+	printf 'Token 2:\n\tURL: pkcs11:model=PKCS%%2315%%20emulated;token=Alice%%20PIV\n\tLabel: Alice PIV\n\tType: Hardware token\n\tFlags: RNG, Requires login, Token initialized, PIN initialized\n\tManufacturer: piv_II\n\tModel: PKCS#15 emulated\n\tSerial: 00a1b2c3\n\n'
+	;;
+"--batch --list-all pkcs11:model=PKCS%2315%20emulated;token=Alice%20PIV")
+	printf 'Object 0:\n\tURL: pkcs11:token=Alice%%20PIV;object=Certificate%%20for%%20PIV%%20Authentication;type=cert\n\tType: X.509 Certificate (EC/ECDSA-SECP256R1)\n\tExpires: %s\n\tLabel: Certificate for PIV Authentication\n\tID: 01\n\n' "$(openssl x509 -in "$cert" -noout -enddate | cut -d= -f2)"
+	printf 'Object 1:\n\tURL: pkcs11:token=Alice%%20PIV;object=PIV%%20AUTH%%20pubkey;type=public\n\tType: Public key (EC/ECDSA-SECP256R1)\n\tLabel: PIV AUTH pubkey\n\tID: 01\n\n'
+	;;
+"--batch --export pkcs11:token=Alice%20PIV;object=Certificate%20for%20PIV%20Authentication;type=cert")
+	cat "$cert" ;;
+"--batch --export pkcs11:token=Alice%20PIV;object=PIV%20AUTH%20pubkey;type=public")
+	openssl x509 -in "$cert" -noout -pubkey ;;
+*)
+	echo "fake-p11tool: unexpected arguments: $*" >&2; exit 1 ;;
+esac

@@ -37,6 +37,18 @@ type EntrypointConfig struct {
 	Passwords PasswordsConfig `yaml:"passwords"`
 	PGP       PGPConfig       `yaml:"pgp"`
 	SSH       SSHConfig       `yaml:"ssh"`
+	// SecurityKeys configures smart cards and passkeys.
+	SecurityKeys SecurityKeysConfig `yaml:"security_keys"`
+}
+
+// SecurityKeysConfig configures the smart card and passkey backend.
+type SecurityKeysConfig struct {
+	Disabled bool `yaml:"disabled"`
+	// P11Tool is GnuTLS's p11tool, which reads smart cards. Defaults to "p11tool".
+	P11Tool string `yaml:"p11tool"`
+	// FIDO2Token is libfido2's fido2-token, which manages passkeys. Defaults to
+	// "fido2-token".
+	FIDO2Token string `yaml:"fido2_token"`
 }
 
 // PasswordsConfig configures the Secret Service (keyrings and passwords) backend.

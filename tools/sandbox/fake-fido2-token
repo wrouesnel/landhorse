@@ -1,0 +1,31 @@
+#!/bin/bash
+# fake-fido2-token - answers like libfido2's fido2-token for the sandbox: one YubiKey with
+# PIN 123456 and two passkeys. Like the real tool without a terminal, it reads the PIN from
+# stdin. Deleted passkeys are remembered in $LANDHORSE_SANDBOX_STATE/fido-deleted.
+deleted="$LANDHORSE_SANDBOX_STATE/fido-deleted"
+checkpin() {
+	read -r pin
+	if [ "$pin" != 123456 ]; then echo "fido2-token: fido_credman_get_dev_rp: FIDO_ERR_PIN_INVALID" >&2; exit 1; fi
+}
+case "$*" in
+"-L")
+	echo "/dev/hidraw7: vendor=0x1050, product=0x0407 (Yubico YubiKey OTP+FIDO+CCID)" ;;
+"-I /dev/hidraw7")
+	printf 'proto: 0x02\nmajor: 0x05\nminor: 0x07\nversion strings: U2F_V2, FIDO_2_0, FIDO_2_1_PRE, FIDO_2_1\nextension strings: credProtect, hmac-secret, largeBlobKey, credBlob, minPinLength\ntransport strings: nfc, usb\nalgorithms: es256 (public-key), eddsa (public-key), es384 (public-key)\naaguid: a25342c0-3cdc-4414-8e46-f4807fca511c\noptions: rk, up, noplat, alwaysUv, credMgmt, authnrCfg, clientPin, largeBlobs, pinUvAuthToken, setMinPINLength, makeCredUvNotRqd, credentialMgmtPreview\nmaxmsgsiz: 1280\nmaxcredcntlst: 8\nmaxcredlen: 128\nremaining rk(s): 23\nminpinlen: 4\npin protocols: 2, 1\npin retries: 8\nuv retries: undefined\n' ;;
+"-L -r /dev/hidraw7")
+	checkpin
+	grep -qx github "$deleted" 2>/dev/null || echo "00: c2l0ZWhhc2g= github.com"
+	grep -qx example "$deleted" 2>/dev/null || echo "01: b3RoZXJoYXNo login.example.com" ;;
+"-L -k github.com /dev/hidraw7")
+	checkpin
+	echo "00: Y3JlZDE= Alice Example dXNlcjE= es256 uvopt nopay" ;;
+"-L -k login.example.com /dev/hidraw7")
+	checkpin
+	echo "00: Y3JlZDI= alice@example.com dXNlcjI= eddsa uvreq nopay" ;;
+"-D -i Y3JlZDE= /dev/hidraw7")
+	checkpin; echo github >> "$deleted" ;;
+"-D -i Y3JlZDI= /dev/hidraw7")
+	checkpin; echo example >> "$deleted" ;;
+*)
+	echo "fake-fido2-token: unexpected arguments: $*" >&2; exit 1 ;;
+esac

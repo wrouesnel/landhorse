@@ -339,6 +339,21 @@ type RemoteImporter interface {
 	ImportToLocal(ctx context.Context) (string, error)
 }
 
+// PINUnlocker is implemented by Lockable categories unlocked with a PIN the user types,
+// such as a security key, rather than by a system prompt.
+type PINUnlocker interface {
+	// PINPrompt explains what the PIN is for.
+	PINPrompt() string
+	// UnlockWithPIN unlocks with pin, returning ErrWrongPassphrase if it's wrong.
+	UnlockWithPIN(ctx context.Context, pin string) error
+}
+
+// EmptyMessage is implemented by categories that explain why they have no items, such as
+// "No smart card is inserted".
+type EmptyMessage interface {
+	EmptyMessage() string
+}
+
 // Deleter is implemented by items that can be deleted.
 type Deleter interface {
 	// DeleteWarning explains exactly what will be removed, for the confirmation dialog.

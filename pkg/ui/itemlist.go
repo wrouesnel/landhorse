@@ -234,6 +234,9 @@ func (l *itemList) load(cat backend.Category) {
 			}
 			l.fill(items)
 			l.updateStatus()
+			if em, ok := cat.(backend.EmptyMessage); ok && len(items) == 0 {
+				l.app.info.showMessage("", em.EmptyMessage())
+			}
 		}
 	})
 }

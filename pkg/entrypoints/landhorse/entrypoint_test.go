@@ -77,7 +77,8 @@ func TestList(t *testing.T) {
 
 	// The Secret Service is left out so the test doesn't depend on the user's keyring.
 	configPath := writeConfig(t, fmt.Sprintf(
-		"passwords:\n  disabled: true\npgp:\n  home: %q\nssh:\n  directory: %q\n", gnupgHome, sshDir))
+		"passwords:\n  disabled: true\nsecurity_keys:\n  disabled: true\npgp:\n  home: %q\nssh:\n  directory: %q\n",
+		gnupgHome, sshDir))
 
 	exitCode, stdOut, stdErr := runEntrypoint(t, "--config-file", configPath, "list")
 	if exitCode != 0 {
@@ -100,7 +101,8 @@ func TestList(t *testing.T) {
 
 func TestListReportsBackendFailure(t *testing.T) {
 	configPath := writeConfig(t,
-		"passwords:\n  disabled: true\nssh:\n  disabled: true\npgp:\n  binary: /nonexistent/gpg\n")
+		"passwords:\n  disabled: true\nssh:\n  disabled: true\nsecurity_keys:\n  disabled: true\n"+
+			"pgp:\n  binary: /nonexistent/gpg\n")
 	exitCode, stdOut, _ := runEntrypoint(t, "--config-file", configPath, "list")
 	if exitCode != 1 {
 		t.Fatalf("exit code: got %d, want 1", exitCode)

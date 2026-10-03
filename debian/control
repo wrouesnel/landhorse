@@ -18,9 +18,13 @@ Depends: gnupg,
          ${misc:Depends},
          ${shlibs:Depends},
 Recommends: dirmngr,
+            fido2-tools,
             gnome-keyring,
+            gnutls-bin,
             libglib2.0-bin,
             openssh-client,
+Suggests: opensc,
+          pcscd,
 # landhorse replaces Seahorse: it installs the seahorse command, a hidden
 # org.gnome.seahorse.Application desktop entry and Seahorse's GSettings schema, so the
 # packages that depend on seahorse (desktop metapackages, libreoffice-gnome,

@@ -17,6 +17,7 @@ import (
 	"github.com/wrouesnel/landhorse/pkg/backend"
 	"github.com/wrouesnel/landhorse/pkg/pgp"
 	"github.com/wrouesnel/landhorse/pkg/secretservice"
+	"github.com/wrouesnel/landhorse/pkg/securitykeys"
 	"github.com/wrouesnel/landhorse/pkg/sshkeys"
 	"github.com/wrouesnel/landhorse/pkg/ui"
 )
@@ -171,6 +172,13 @@ func buildGroups(ctx context.Context, config *EntrypointConfig, fs afero.Fs) ([]
 		groups = append(groups, &sshkeys.Group{
 			Dir:         pathlib.NewPath(dir, pathlib.PathWithAfero(fs)),
 			AgentSocket: socket,
+		})
+	}
+
+	if !config.SecurityKeys.Disabled {
+		groups = append(groups, &securitykeys.Group{
+			P11:  &securitykeys.P11{Binary: config.SecurityKeys.P11Tool},
+			FIDO: &securitykeys.FIDO{Binary: config.SecurityKeys.FIDO2Token},
 		})
 	}
 

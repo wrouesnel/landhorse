@@ -264,8 +264,13 @@ func (a *App) actionRefresh() {
 }
 
 func (a *App) actionUnlock() {
-	lk, ok := a.selectedCategory().(backend.Lockable)
+	cat := a.selectedCategory()
+	lk, ok := cat.(backend.Lockable)
 	if !ok {
+		return
+	}
+	if pu, ok := cat.(backend.PINUnlocker); ok {
+		a.unlockWithPIN(cat, pu)
 		return
 	}
 	a.setStatus("Waiting for the keyring to be unlocked…")

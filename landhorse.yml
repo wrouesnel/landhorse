@@ -28,6 +28,13 @@ pgp:
   #   - ldap://keyserver.pgp.com
   #   - hkps://keys.openpgp.org
 
+security_keys:
+  # Smart cards (PIV) through PKCS#11 with GnuTLS's p11tool, and passkeys on FIDO2
+  # security keys with libfido2's fido2-token.
+  disabled: false
+  p11tool: p11tool
+  fido2_token: fido2-token
+
 ssh:
   disabled: false
   # Directory scanned for OpenSSH keys. Empty means ~/.ssh.

@@ -22,6 +22,8 @@ conventional desktop layout:
 | PGP Keys → Keyservers → each keyserver | A search bar: Keyservers searches all of them, each keyserver itself | Import found keys, or copy, export and encrypt to them without importing |
 | Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, change passphrases (saving them in the login keyring), delete key pairs |
 | Secure Shell → SSH agent | The agent at `$SSH_AUTH_SOCK` | Copy (or double-click) and export public keys, remove keys from the agent |
+| Security Keys → Smart cards → each card | PKCS#11 via GnuTLS's `p11tool` (OpenSC for PIV cards and YubiKeys) | View certificates and public keys; copy and export them |
+| Security Keys → Passkeys → each security key | FIDO2 via libfido2's `fido2-token` | View the key's details; unlock with its PIN to list and delete its passkeys |
 
 Keyrings also group their passwords: network passwords by host, plus any attributes you
 choose in Edit → Preferences (for example `service`), each with a subcategory per value.

@@ -71,12 +71,22 @@ quiet gpg "${nopass[@]}" --yes --quick-sign-key \
 "$(dirname "$0")/hkp-stub.py" 11371 "$STATE/published" &
 # A second, empty keyserver, so searching all keyservers can be compared with one.
 "$(dirname "$0")/hkp-stub.py" 11372 "$STATE/published-2" &
+# Fake security keys: a PIV card with a self-signed certificate and a FIDO2 key (PIN 123456).
+export LANDHORSE_SANDBOX_STATE=$STATE
+rm -f "$STATE/fido-deleted"
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 365 \
+    -subj "/CN=Alice Example (PIV Authentication)/O=Example Corp" -addext "subjectAltName=email:alice@example.com" \
+    -addext "extendedKeyUsage=clientAuth" -keyout /dev/null -out "$STATE/piv-cert.pem" 2>/dev/null
+
 mkdir -p "$XDG_CONFIG_HOME/landhorse"
 cat > "$XDG_CONFIG_HOME/landhorse/landhorse.yml" <<YAML
 pgp:
   keyservers:
     - hkp://127.0.0.1:11371 Sandbox keyserver
     - hkp://127.0.0.1:11372 Empty keyserver
+security_keys:
+  p11tool: $(dirname "$0")/fake-p11tool
+  fido2_token: $(dirname "$0")/fake-fido2-token
 YAML
 
 # SSH: an unencrypted pair, a passphrase protected pair, and a lone public key.
