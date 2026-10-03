@@ -32,3 +32,5 @@ ssh:
   disabled: false
   # Directory scanned for OpenSSH keys. Empty means ~/.ssh.
   directory: ""
+  # SSH agent whose loaded keys are listed. Empty means $SSH_AUTH_SOCK.
+  agent_socket: ""

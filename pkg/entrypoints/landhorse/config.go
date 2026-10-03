@@ -74,6 +74,9 @@ type SSHConfig struct {
 	Disabled bool `yaml:"disabled"`
 	// Directory holds the keys. Defaults to ~/.ssh.
 	Directory string `yaml:"directory"`
+	// AgentSocket is the SSH agent whose loaded keys are listed. Defaults to
+	// $SSH_AUTH_SOCK; with neither, the SSH agent category is left out.
+	AgentSocket string `yaml:"agent_socket"`
 }
 
 // defaultConfigPath is $XDG_CONFIG_HOME/landhorse/landhorse.yml, or landhorse.yml in the

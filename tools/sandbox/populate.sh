@@ -73,6 +73,19 @@ ssh-keygen -q -t ecdsa -N '' -C deploy@ci -f "$STATE/deploy"
 mv "$STATE/deploy.pub" "$HOME/.ssh/deploy.pub"; rm -f "$STATE/deploy"
 cp "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/authorized_keys"
 
+# The sandbox's own SSH agent, never the user's: in the foreground (-D) so it stays in the
+# sandbox's process group and stop.sh ends it. It holds id_ed25519 and a key with no file.
+# Unix socket paths are limited to about 100 characters, so the socket goes in a short
+# directory under /tmp, which stop.sh removes.
+agent_dir=$(mktemp -d /tmp/landhorse-agent.XXXXXX)
+echo "$agent_dir" > "$STATE/agent-dir"
+export SSH_AUTH_SOCK=$agent_dir/agent.sock
+ssh-agent -D -a "$SSH_AUTH_SOCK" >/dev/null &
+for _ in $(seq 1 20); do [ -S "$SSH_AUTH_SOCK" ] && break; sleep 0.1; done
+ssh-add -q "$HOME/.ssh/id_ed25519"
+ssh-keygen -q -t ed25519 -N '' -C agent-only@sandbox -f "$STATE/agent-only"
+ssh-add -q "$STATE/agent-only"; rm -f "$STATE/agent-only" "$STATE/agent-only.pub"
+
 # Passwords related to the keys above, stored the way gpg-agent and gnome-keyring's SSH
 # agent store them, so the detail view lists them under Related Items.
 pat_grip=$(gpg --with-colons --with-keygrip --list-secret-keys pat@example.com | awk -F: '/^grp/{print $10; exit}')

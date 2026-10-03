@@ -51,6 +51,7 @@ type Parent interface {
 //	gpg-fpr:<FINGERPRINT>      a PGP primary key or subkey fingerprint, upper case hex
 //	gpg-keygrip:<KEYGRIP>      a PGP key or subkey keygrip, upper case hex
 //	ssh-private-key:<path>     the absolute path of an SSH private key file
+//	ssh-fingerprint:<SHA256:…> an SSH public key's SHA256 fingerprint
 type Linkable interface {
 	Item
 	LinkKeys() []string

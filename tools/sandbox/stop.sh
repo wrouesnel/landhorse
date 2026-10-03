@@ -9,4 +9,5 @@ if [ -f "$state/pid" ]; then
     rm -f "$state/pid"
 fi
 # The sandbox's keys are disposable; don't leave private keys lying around.
+[ -f "$state/agent-dir" ] && rm -rf "$(cat "$state/agent-dir")" "$state/agent-dir"
 rm -rf "$state/home" "$state/run" "$state/published"

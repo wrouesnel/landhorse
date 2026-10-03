@@ -155,7 +155,14 @@ func buildGroups(ctx context.Context, config *EntrypointConfig, fs afero.Fs) ([]
 			}
 			dir = filepath.Join(home, ".ssh")
 		}
-		groups = append(groups, &sshkeys.Group{Dir: pathlib.NewPath(dir, pathlib.PathWithAfero(fs))})
+		socket := config.SSH.AgentSocket
+		if socket == "" {
+			socket = os.Getenv("SSH_AUTH_SOCK")
+		}
+		groups = append(groups, &sshkeys.Group{
+			Dir:         pathlib.NewPath(dir, pathlib.PathWithAfero(fs)),
+			AgentSocket: socket,
+		})
 	}
 
 	closeAll := func() {

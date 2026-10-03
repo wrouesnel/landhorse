@@ -268,6 +268,9 @@ func readAuthorizedKeys(path *pathlib.Path) map[string]bool {
 // Group is the "Secure Shell" node of the type tree.
 type Group struct {
 	Dir *pathlib.Path
+	// AgentSocket is the SSH agent's socket, normally $SSH_AUTH_SOCK. Empty means there is
+	// no agent, and its category is left out.
+	AgentSocket string
 }
 
 // Title implements backend.Group.
@@ -278,7 +281,11 @@ func (g *Group) IconName() string { return "utilities-terminal" }
 
 // Categories implements backend.Group.
 func (g *Group) Categories(_ context.Context) ([]backend.Category, error) {
-	return []backend.Category{&Category{Dir: g.Dir}}, nil
+	cats := []backend.Category{&Category{Dir: g.Dir}}
+	if g.AgentSocket != "" {
+		cats = append(cats, &AgentCategory{Socket: g.AgentSocket})
+	}
+	return cats, nil
 }
 
 // Category lists the keys in one directory.
@@ -486,16 +493,21 @@ func (i *Item) Delete(_ context.Context) error {
 var _ backend.Linkable = (*Item)(nil)
 
 // LinkKeys implements backend.Linkable: the private key's path, which gnome-keyring's SSH
-// agent records on the passphrase it saves.
+// agent records on the passphrase it saves, and the fingerprint, which the agent lists
+// loaded keys by.
 func (i *Item) LinkKeys() []string {
-	if i.SSHKey.PrivatePath == nil {
-		return nil
+	var keys []string
+	if fp := i.SSHKey.Fingerprint(); fp != "" {
+		keys = append(keys, "ssh-fingerprint:"+fp)
 	}
-	path := i.SSHKey.PrivatePath.String()
-	if abs, err := filepath.Abs(path); err == nil {
-		path = abs
+	if i.SSHKey.PrivatePath != nil {
+		path := i.SSHKey.PrivatePath.String()
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		keys = append(keys, "ssh-private-key:"+filepath.Clean(path))
 	}
-	return []string{"ssh-private-key:" + filepath.Clean(path)}
+	return keys
 }
 
 // LinkDescription implements backend.Linkable.

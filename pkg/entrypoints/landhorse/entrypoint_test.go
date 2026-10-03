@@ -65,6 +65,8 @@ func newGnuPGHome(t *testing.T) string {
 }
 
 func TestList(t *testing.T) {
+	// Never list the real user's SSH agent.
+	t.Setenv("SSH_AUTH_SOCK", "")
 	gnupgHome := newGnuPGHome(t)
 
 	sshDir := t.TempDir()
