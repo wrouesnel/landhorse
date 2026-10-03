@@ -1,9 +1,12 @@
 package secretservice
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/wrouesnel/landhorse/pkg/backend"
 )
 
 func item(schema string, attrs map[string]string) *Item {
@@ -47,7 +50,7 @@ func TestInferCategories(t *testing.T) {
 		{keyring: k, item: item("", map[string]string{"url": "https://a.example/login"})},
 		{keyring: k, item: item("org.freedesktop.Secret.Generic", nil)},
 	}
-	cats := inferCategories(k, items)
+	cats := inferCategories(k, items, nil)
 	if len(cats) != 1 || cats[0].Title() != "Network passwords" {
 		t.Fatalf("got %v, want one Network passwords category", cats)
 	}
@@ -69,7 +72,7 @@ func TestInferCategories(t *testing.T) {
 		t.Errorf("a.example matched %d items, want 2", matched)
 	}
 
-	if cats := inferCategories(k, items[3:]); cats != nil {
+	if cats := inferCategories(k, items[3:], nil); cats != nil {
 		t.Errorf("keyring without network passwords got categories %v", cats)
 	}
 }
@@ -112,5 +115,46 @@ func TestNormalizeHost(t *testing.T) {
 		if got := normalizeHost(in); got != want {
 			t.Errorf("normalizeHost(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestAttributeGroupings(t *testing.T) {
+	k := &Keyring{collection: &Collection{Path: "/org/freedesktop/secrets/collection/login", Label: "Login"}}
+	items := []*PasswordItem{
+		{keyring: k, item: item("", map[string]string{"service": "github.com", "user": "a"})},
+		{keyring: k, item: item("", map[string]string{"service": "github.com", "user": "b"})},
+		{keyring: k, item: item("", map[string]string{"service": "gitlab.com"})},
+		{keyring: k, item: item("", map[string]string{"user": "c"})},
+	}
+	cats := inferCategories(k, items, []backend.AttributeGrouping{
+		{Attribute: "service", Title: "Services"},
+		{Attribute: "missing"},
+		{Attribute: "user"},
+	})
+	if len(cats) != 2 {
+		t.Fatalf("got %d categories, want 2 (an attribute nobody has adds none)", len(cats))
+	}
+	services := cats[0].(*subset)
+	if services.Title() != "Services" || cats[1].Title() != "user" {
+		t.Errorf("titles: got %q and %q", services.Title(), cats[1].Title())
+	}
+	count := func(s *subset) int {
+		n := 0
+		for _, it := range items {
+			if s.match(it.item) {
+				n++
+			}
+		}
+		return n
+	}
+	if count(services) != 3 {
+		t.Errorf("Services matched %d items, want 3", count(services))
+	}
+	var values []string
+	for _, c := range services.Children() {
+		values = append(values, fmt.Sprintf("%s=%d", c.Title(), count(c.(*subset))))
+	}
+	if !reflect.DeepEqual(values, []string{"github.com=2", "gitlab.com=1"}) {
+		t.Errorf("service values: got %v", values)
 	}
 }

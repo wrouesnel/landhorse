@@ -47,6 +47,49 @@ func SchemaName(schema string) string {
 type Group struct {
 	mu     sync.Mutex
 	client *Client
+	// groupings are the user's attribute groupings, applied to every keyring.
+	groupings []backend.AttributeGrouping
+}
+
+// SetGroupings sets the attribute groupings that keyrings' items are grouped by. They
+// apply from the next Categories call.
+func (g *Group) SetGroupings(groupings []backend.AttributeGrouping) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.groupings = append([]backend.AttributeGrouping(nil), groupings...)
+}
+
+// Groupings returns the attribute groupings set with SetGroupings.
+func (g *Group) Groupings() []backend.AttributeGrouping {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]backend.AttributeGrouping(nil), g.groupings...)
+}
+
+// AttributeNames counts how many items in all keyrings have each attribute, for suggesting
+// groupings.
+func (g *Group) AttributeNames(ctx context.Context) (map[string]int, error) {
+	cats, err := g.Categories(ctx)
+	if err != nil {
+		return nil, err
+	}
+	counts := map[string]int{}
+	for _, cat := range cats {
+		k, ok := cat.(*Keyring)
+		if !ok {
+			continue
+		}
+		items, err := k.passwordItems(ctx)
+		if err != nil {
+			continue
+		}
+		for _, item := range items {
+			for name := range item.item.Attributes {
+				counts[name]++
+			}
+		}
+	}
+	return counts, nil
 }
 
 // Close releases the Secret Service connection, if one was made.
@@ -118,7 +161,7 @@ func (g *Group) Categories(ctx context.Context) ([]backend.Category, error) {
 		if err != nil {
 			return nil, err
 		}
-		k.children = inferCategories(k, items)
+		k.children = inferCategories(k, items, g.Groupings())
 		result = append(result, k)
 	}
 	return result, nil

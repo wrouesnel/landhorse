@@ -6,6 +6,12 @@
 passwords:
   # Keyrings and passwords from the Secret Service (gnome-keyring, KeePassXC).
   disabled: false
+  # Extra groups under every keyring, one per attribute, with a subcategory for each of the
+  # attribute's values. Usually edited in Edit → Preferences. Title defaults to the
+  # attribute name. Network passwords are always grouped by host.
+  # groups:
+  #   - attribute: service
+  #     title: Services
 
 pgp:
   disabled: false

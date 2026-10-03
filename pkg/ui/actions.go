@@ -160,6 +160,10 @@ func (a *App) buildMenuBar(accel *gtk.AccelGroup) (*gtk.MenuBar, error) {
 	menus.lock = addItem(edit, "_Lock Keyring", gdk.KEY_l, gdk.CONTROL_MASK, a.actionLock)
 	addSeparator(edit)
 	addItem(edit, "_Find", gdk.KEY_f, gdk.CONTROL_MASK, func() { a.search.GrabFocus() })
+	if a.opts.Settings != nil {
+		addSeparator(edit)
+		addItem(edit, "Prefere_nces", gdk.KEY_comma, gdk.CONTROL_MASK, a.actionPreferences)
+	}
 
 	view := addMenu("_View")
 	addItem(view, "_Refresh", gdk.KEY_F5, 0, a.actionRefresh)

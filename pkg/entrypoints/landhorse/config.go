@@ -42,6 +42,17 @@ type EntrypointConfig struct {
 // PasswordsConfig configures the Secret Service (keyrings and passwords) backend.
 type PasswordsConfig struct {
 	Disabled bool `yaml:"disabled"`
+	// Groups add a category to each keyring per attribute, with a subcategory for each of
+	// the attribute's values. Edited in Edit → Preferences.
+	Groups []GroupConfig `yaml:"groups,omitempty"`
+}
+
+// GroupConfig groups passwords by an attribute.
+type GroupConfig struct {
+	// Attribute is the item attribute to group by, e.g. "service".
+	Attribute string `yaml:"attribute"`
+	// Title names the category; empty means the attribute name.
+	Title string `yaml:"title,omitempty"`
 }
 
 // PGPConfig configures the GnuPG backend.

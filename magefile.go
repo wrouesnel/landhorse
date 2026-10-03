@@ -97,6 +97,7 @@ const (
 	constGitHookDir  = "githooks"
 	constBinDir      = "bin"
 	constReleaseDir  = "release"
+	constDistDir     = "dist"
 	constCmdDir      = "cmd"
 	constCoverFile   = ".cover.out"
 	constJunitDir    = ".junit"
@@ -147,6 +148,10 @@ var toolsBinDir = normalizePath(path.Join(curDir, constToolBinDir))
 var gitHookDir = normalizePath(path.Join(curDir, constGitHookDir))
 var binDir = normalizePath(path.Join(curDir, constBinDir))
 var releaseDir = normalizePath(path.Join(curDir, constReleaseDir))
+
+// distDir holds OS package builds (see Deb), including staged copies of the source tree,
+// which must not be mistaken for the project's own packages.
+var distDir = normalizePath(path.Join(curDir, constDistDir))
 var cmdDir = normalizePath(path.Join(curDir, constCmdDir))
 var junitDir = normalizePath(path.Join(curDir, constJunitDir))
 var nodeDir = normalizePath(path.Join(curDir, constNodeDir))
@@ -418,7 +423,7 @@ func init() {
 			}
 
 			// Exclusions
-			for _, exclusion := range []string{toolsBinDir, binDir, releaseDir, coverageDir} {
+			for _, exclusion := range []string{toolsBinDir, binDir, releaseDir, distDir, coverageDir} {
 				if strings.HasPrefix(path, exclusion) {
 					if info.IsDir() {
 						return filepath.SkipDir

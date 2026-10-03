@@ -58,6 +58,23 @@ type Linkable interface {
 	LinkDescription() string
 }
 
+// AttributeGrouping groups items by the value of one of their attributes: a category named
+// after the attribute, with a subcategory for each value.
+type AttributeGrouping struct {
+	// Attribute is the attribute's name, e.g. "service".
+	Attribute string
+	// Title names the category; empty means the attribute name.
+	Title string
+}
+
+// Label is the category name for the grouping.
+func (g AttributeGrouping) Label() string {
+	if g.Title != "" {
+		return g.Title
+	}
+	return g.Attribute
+}
+
 // Column describes one column of the middle list.
 type Column struct {
 	Title string

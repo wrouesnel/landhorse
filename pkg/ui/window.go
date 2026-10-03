@@ -35,6 +35,18 @@ type Options struct {
 	InitialCategory string
 	// ConfigPath is the configuration file, named in help text about settings.
 	ConfigPath string
+	// Settings reads and saves the preferences shown in Edit → Preferences. Nil hides it.
+	Settings Settings
+}
+
+// Settings is what the preferences dialog edits.
+type Settings interface {
+	// KeyringGroupings are the attributes keyring items are grouped by.
+	KeyringGroupings() []backend.AttributeGrouping
+	// SetKeyringGroupings saves and applies new groupings; refresh the tree to see them.
+	SetKeyringGroupings(groupings []backend.AttributeGrouping) error
+	// KeyringAttributes counts the items having each attribute, to suggest groupings.
+	KeyringAttributes(ctx context.Context) (map[string]int, error)
 }
 
 // App is the main window and its state.

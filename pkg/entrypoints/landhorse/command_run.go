@@ -37,12 +37,20 @@ func (r *RunCmd) Run(ctx context.Context, cli *CLIConfig, config *EntrypointConf
 	}
 	defer closeGroups()
 
+	prefs := &settings{path: pathlib.NewPath(cli.ConfigFile.String(), pathlib.PathWithAfero(fs)), config: config}
+	for _, g := range groups {
+		if ss, ok := g.(*secretservice.Group); ok {
+			prefs.passwords = ss
+		}
+	}
+
 	l.Debug("Opening main window", zap.Int("groups", len(groups)))
 	return ui.Run(ctx, ui.Options{
 		Groups:          groups,
 		Fs:              fs,
 		InitialCategory: r.Category,
 		ConfigPath:      cli.ConfigFile.String(),
+		Settings:        prefs,
 	})
 }
 
@@ -112,6 +120,11 @@ func buildGroups(ctx context.Context, config *EntrypointConfig, fs afero.Fs) ([]
 
 	if !config.Passwords.Disabled {
 		g := &secretservice.Group{}
+		groupings := make([]backend.AttributeGrouping, 0, len(config.Passwords.Groups))
+		for _, gc := range config.Passwords.Groups {
+			groupings = append(groupings, backend.AttributeGrouping{Attribute: gc.Attribute, Title: gc.Title})
+		}
+		g.SetGroupings(groupings)
 		groups = append(groups, g)
 		closers = append(closers, g.Close)
 	}

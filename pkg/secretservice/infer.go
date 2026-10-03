@@ -65,9 +65,60 @@ func normalizeHost(host string) string {
 //	Login                 every item
 //	  Network passwords   passwords for network services
 //	    example.com       one per host
+//	  Services            one per configured attribute grouping, here "service"
+//	    github.com        one per value of the attribute
 //
-// Subcategories are a browsing aid; the keyring itself still lists everything.
-func inferCategories(k *Keyring, items []*PasswordItem) []backend.Category {
+// Subcategories are a browsing aid; each parent still lists everything beneath it.
+func inferCategories(k *Keyring, items []*PasswordItem, groupings []backend.AttributeGrouping) []backend.Category {
+	var result []backend.Category
+	if network := networkCategory(k, items); network != nil {
+		result = append(result, network)
+	}
+	for _, g := range groupings {
+		if cat := attributeCategory(k, items, g); cat != nil {
+			result = append(result, cat)
+		}
+	}
+	return result
+}
+
+// attributeCategory groups the items that have the grouping's attribute by its value, or
+// returns nil if no item has the attribute.
+func attributeCategory(k *Keyring, items []*PasswordItem, g backend.AttributeGrouping) backend.Category {
+	attr := g.Attribute
+	values := map[string]bool{}
+	for _, item := range items {
+		if v, ok := item.item.Attributes[attr]; ok {
+			values[v] = true
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	parent := &subset{
+		keyring: k, key: k.Key() + ":attr:" + attr, title: g.Label(), icon: "folder-symbolic",
+		match: func(it *Item) bool { _, ok := it.Attributes[attr]; return ok },
+	}
+	sorted := make([]string, 0, len(values))
+	for v := range values {
+		sorted = append(sorted, v)
+	}
+	sort.Strings(sorted)
+	for _, value := range sorted {
+		title := value
+		if title == "" {
+			title = "(empty)"
+		}
+		parent.children = append(parent.children, &subset{
+			keyring: k, key: parent.key + "=" + value, title: title, icon: "text-x-generic-symbolic",
+			match: func(it *Item) bool { v, ok := it.Attributes[attr]; return ok && v == value },
+		})
+	}
+	return parent
+}
+
+// networkCategory groups network passwords by host, or returns nil if there are none.
+func networkCategory(k *Keyring, items []*PasswordItem) backend.Category {
 	hosts := map[string]bool{}
 	anyNetwork := false
 	for _, item := range items {
@@ -99,7 +150,7 @@ func inferCategories(k *Keyring, items []*PasswordItem) []backend.Category {
 			match: func(it *Item) bool { h, ok := NetworkHost(it); return ok && h == host },
 		})
 	}
-	return []backend.Category{network}
+	return network
 }
 
 // subset is an inferred category: the keyring's items that match a predicate. Locking it

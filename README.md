@@ -20,6 +20,9 @@ conventional desktop layout:
 | PGP Keys → GnuPG keys → Private keys / Public keys → each email address | The `gpg` command (`--with-colons`) | Copy, export or publish public keys, import, revoke, delete |
 | Secure Shell → OpenSSH keys | Key files in `~/.ssh` | Copy (or double-click) and export public keys, delete key pairs |
 
+Keyrings also group their passwords: network passwords by host, plus any attributes you
+choose in Edit → Preferences (for example `service`), each with a subcategory per value.
+
 Every field in the detail view has a copy button. Showing or copying a password from a
 locked keyring brings up the system unlock prompt. Every delete asks for confirmation and
 says exactly what will be removed.
