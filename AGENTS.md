@@ -99,6 +99,13 @@ tools/sandbox/shot.sh name        # screenshot to $SANDBOX_STATE/name.png
 tools/sandbox/stop.sh
 ```
 
+To test drag and drop, run `tools/sandbox/dragsource.py FILE...` on the sandbox display:
+it shows a "DRAG ME" button that drags the files as a file manager would, so xdotool can
+drag from it (mousedown, a few mousemoves, mouseup) onto a drop area.
+
+Don't run gpg on the host against the sandbox's GnuPG home: the sandbox's gpg-agent uses
+a different socket directory, and mixing agents lost the sandbox's private keys once.
+
 Read-only commands such as `./landhorse list` are safe to run against real data.
 
 Tests and the sandbox generate disposable GPG keys in temporary `GNUPGHOME`s only; see the

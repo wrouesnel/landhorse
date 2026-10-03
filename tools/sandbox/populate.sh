@@ -28,18 +28,19 @@ printf 'deleteme' | secret-tool store --label="Old password" service old.example
 # Dave revoked.
 quiet() { "$@" >/dev/null 2>&1; }
 nopass=(--batch --pinentry-mode loopback --passphrase '')
-quiet gpg "${nopass[@]}" --quick-generate-key "Alice Example <alice@example.com>" ed25519 default 2y
+quiet gpg "${nopass[@]}" --quick-generate-key "Alice Example <alice@example.com>" future-default default 2y
 quiet gpg "${nopass[@]}" --quick-add-uid alice@example.com "Alice Example (work) <alice@work.example>"
 # A private key with a passphrase ("sandbox"), to exercise gpg-agent's passphrase prompt.
 quiet gpg --batch --pinentry-mode loopback --passphrase sandbox \
-    --quick-generate-key "Pat Passphrase <pat@example.com>" ed25519 default never
+    --quick-generate-key "Pat Passphrase <pat@example.com>" future-default default never
 
 other=$(mktemp -d "$STATE/other.XXXXXX"); chmod 700 "$other"
 og() { quiet gpg --homedir "$other" "${nopass[@]}" "$@"; }
 og --quick-generate-key "Bob Builder <bob@example.org>" rsa3072 default never
+og --quick-add-key "$(gpg --homedir "$other" --with-colons --list-keys bob@example.org | awk -F: '/^fpr/{print $10; exit}')" rsa3072 encr never
 sleep 1 # so the second user ID's self-signature is newer
 og --quick-add-uid bob@example.org "Bob Builder (site foreman) <bob@site.example>"
-og --quick-generate-key "Erin Unknown <erin@example.net>" ed25519 default never
+og --quick-generate-key "Erin Unknown <erin@example.net>" future-default default never
 og --faked-system-time 20200101T000000 --quick-generate-key "Carol Expired <carol@example.net>" ed25519 default 1y
 og --quick-generate-key "Dave Revoked <dave@example.net>" ed25519 default never
 # gpg writes a revocation certificate for each new key, with its armor line prefixed by ":"

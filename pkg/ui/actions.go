@@ -209,6 +209,9 @@ func (a *App) popupItemMenu(ev *gdk.Event) {
 	if _, ok := item.(backend.PassphraseChanger); ok {
 		add("C_hange Passphrase…", canChangePassphrase(item), a.actionChangePassphrase)
 	}
+	if ok, label := canCryptText(item); label != "" {
+		add(label, ok, a.actionCryptText)
+	}
 	sep, _ := gtk.SeparatorMenuItemNew()
 	menu.Append(sep)
 	add("_Delete", canDelete, a.actionDelete)

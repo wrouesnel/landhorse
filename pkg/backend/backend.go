@@ -257,6 +257,26 @@ type SecretStore interface {
 	DeleteSecrets(ctx context.Context, attrs map[string]string) (int, error)
 }
 
+// Crypter is implemented by keys that encrypt to their owner or sign for them, such as
+// PGP keys. Each operation reports why it isn't possible through the Can methods.
+type Crypter interface {
+	// CryptName is who encrypted data is for, e.g. the key owner's name.
+	CryptName() string
+	CanEncrypt() (bool, string)
+	CanSign() (bool, string)
+	// EncryptionWarning is non-empty when the key isn't verified as its owner's; the user
+	// must accept it, and then trustAnyway is passed as true.
+	EncryptionWarning() string
+	// EncryptFile encrypts the file in to the file out, replacing out.
+	EncryptFile(ctx context.Context, in, out string, trustAnyway bool) error
+	// SignFile writes a detached signature of the file in to the file out, replacing out.
+	SignFile(ctx context.Context, in, out string) error
+	// EncryptText returns text encrypted as ASCII armor.
+	EncryptText(ctx context.Context, text string, trustAnyway bool) (string, error)
+	// SignText returns text clear-signed.
+	SignText(ctx context.Context, text string) (string, error)
+}
+
 // Deleter is implemented by items that can be deleted.
 type Deleter interface {
 	// DeleteWarning explains exactly what will be removed, for the confirmation dialog.

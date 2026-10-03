@@ -204,8 +204,8 @@ func (d *revokeDialog) buildCertificateSection() (gtk.IWidget, error) {
 	frame.Connect("drag-data-received",
 		func(_ *gtk.Frame, _ *gdk.DragContext, _, _ int, data *gtk.SelectionData, info uint, _ uint) {
 			if info == dropURIs {
-				if list := data.GetURIs(); len(list) > 0 {
-					d.loadURI(list[0])
+				if paths := droppedFiles(data); len(paths) > 0 {
+					d.loadFile(paths[0])
 				}
 				return
 			}

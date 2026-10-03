@@ -24,6 +24,11 @@ conventional desktop layout:
 Keyrings also group their passwords: network passwords by host, plus any attributes you
 choose in Edit → Preferences (for example `service`), each with a subcategory per value.
 
+A PGP key's details have drop areas: drop files to encrypt them to the key (saved as
+`<file>.gpg`) or, for your own keys, to sign them (detached signatures, `<file>.sig`).
+Right-click a key for "Encrypt Text…" or "Sign or Encrypt Text…". Encrypting to a key gpg
+hasn't verified asks for confirmation first.
+
 Every field in the detail view has a copy button. Showing or copying a password from a
 locked keyring brings up the system unlock prompt. Every delete asks for confirmation and
 says exactly what will be removed.

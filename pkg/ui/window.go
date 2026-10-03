@@ -113,6 +113,7 @@ func Run(ctx context.Context, opts Options) error {
 // evenly spaced.
 const appCSS = `
 button.copy-button { padding: 0 4px; min-height: 0; min-width: 0; }
+.drop-zone { border: 2px dashed alpha(currentColor, 0.3); border-radius: 6px; padding: 12px; }
 `
 
 func installCSS() {

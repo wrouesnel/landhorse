@@ -34,7 +34,7 @@ func newGnuPGHome(t *testing.T) string {
 func generateKey(t *testing.T, home, uid string) *pgp.Key {
 	t.Helper()
 	gen := exec.Command("gpg", "--homedir", home, "--batch", "--pinentry-mode", "loopback", "--passphrase", "",
-		"--quick-generate-key", uid, "ed25519", "default", "never")
+		"--quick-generate-key", uid, "future-default", "default", "never")
 	if out, err := gen.CombinedOutput(); err != nil {
 		t.Fatalf("generating a test key: %v\n%s", err, out)
 	}

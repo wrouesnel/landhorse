@@ -135,6 +135,9 @@ func (d *detailView) render(detail *backend.Detail) {
 	}
 	header.PackStart(titles, true, true, 0)
 	d.box.PackStart(header, false, false, 0)
+	if crypter, ok := d.item.(backend.Crypter); ok {
+		d.box.PackStart(d.renderCryptAreas(crypter), false, false, 0)
+	}
 
 	for i, section := range detail.Sections {
 		d.box.PackStart(d.renderSection(section), false, false, 0)
