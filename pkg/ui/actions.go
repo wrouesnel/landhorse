@@ -355,6 +355,10 @@ func (a *App) actionExport() {
 	if !ok {
 		return
 	}
+	if secret, ok := exporter.(backend.SecretExporter); ok && secret.CanExportSecret() {
+		a.exportWithSecret(secret)
+		return
+	}
 	dlg, err := gtk.FileChooserNativeDialogNew("Export", a.window,
 		gtk.FILE_CHOOSER_ACTION_SAVE, "_Export", "_Cancel")
 	if err != nil {
@@ -362,6 +366,7 @@ func (a *App) actionExport() {
 		return
 	}
 	defer dlg.Destroy()
+	startInHome(&dlg.FileChooser)
 	dlg.SetCurrentName(exporter.ExportName())
 	dlg.SetDoOverwriteConfirmation(true)
 	if gtk.ResponseType(dlg.Run()) != gtk.RESPONSE_ACCEPT {

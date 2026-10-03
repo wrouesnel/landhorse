@@ -211,6 +211,20 @@ type Revoker interface {
 	ConfirmationCode() string
 }
 
+// SecretExporter is implemented by Exporters whose secret part can be exported too, such as
+// a PGP key's private key.
+type SecretExporter interface {
+	Exporter
+	// CanExportSecret reports whether the secret part is available to export.
+	CanExportSecret() bool
+	// SecretExportName is the suggested file name for an export including the secret part.
+	SecretExportName() string
+	// ExportSecret exports the item including its secret part. With a non-empty password
+	// the result is encrypted with it; an empty password exports it unencrypted. It may
+	// prompt for the item's own passphrase.
+	ExportSecret(ctx context.Context, password string) ([]byte, error)
+}
+
 // Deleter is implemented by items that can be deleted.
 type Deleter interface {
 	// DeleteWarning explains exactly what will be removed, for the confirmation dialog.

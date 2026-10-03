@@ -10,6 +10,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"slices"
 	"sort"
@@ -40,6 +42,9 @@ type invocation struct {
 	interactive bool
 	// home overrides the GnuPG home, for scratch keyrings.
 	home string
+	// passphrase, when set, is given to gpg on file descriptor 3 (--passphrase-fd 3), so it
+	// never appears in arguments or files.
+	passphrase *string
 }
 
 // run executes gpg and returns its standard output and standard error.
@@ -75,6 +80,18 @@ func (g *GPG) runWith(ctx context.Context, inv invocation, args ...string) ([]by
 	cmd.Stderr = &stderr
 	if inv.stdin != nil {
 		cmd.Stdin = bytes.NewReader(inv.stdin)
+	}
+	if inv.passphrase != nil {
+		r, w, err := os.Pipe()
+		if err != nil {
+			return nil, nil, err
+		}
+		defer r.Close()
+		cmd.ExtraFiles = []*os.File{r} // fd 3 in the child
+		go func() {
+			_, _ = io.WriteString(w, *inv.passphrase+"\n")
+			_ = w.Close()
+		}()
 	}
 	if err := cmd.Run(); err != nil {
 		msg := strings.TrimSpace(stderr.String())
@@ -544,4 +561,43 @@ func (i *Item) LinkKeys() []string {
 // LinkDescription implements backend.Linkable.
 func (i *Item) LinkDescription() string {
 	return i.kind() + " PGP key " + shortKeyID(i.PGPKey.KeyID)
+}
+
+var _ backend.SecretExporter = (*Item)(nil)
+
+// CanExportSecret implements backend.SecretExporter.
+func (i *Item) CanExportSecret() bool { return i.PGPKey.HasSecret() }
+
+// SecretExportName implements backend.SecretExporter.
+func (i *Item) SecretExportName() string {
+	return fmt.Sprintf("%s-private-key.asc", i.PGPKey.KeyID)
+}
+
+// ExportSecret implements backend.SecretExporter. gpg exports the secret key still
+// protected by its own passphrase, if it has one, and gpg-agent may ask for that
+// passphrase. With a password, the export is then encrypted with it (gpg --symmetric), so
+// restoring it takes "gpg --decrypt FILE | gpg --import".
+func (i *Item) ExportSecret(ctx context.Context, password string) ([]byte, error) {
+	if !i.PGPKey.HasSecret() {
+		return nil, errors.New("this key's secret part isn't on this computer")
+	}
+	secret, _, err := i.GPG.runWith(ctx, invocation{interactive: true},
+		"--batch", "--armor", "--export-secret-keys", i.PGPKey.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	if len(secret) == 0 {
+		return nil, errors.New("gpg exported nothing")
+	}
+	if password == "" {
+		return secret, nil
+	}
+	defer clear(secret)
+	encrypted, _, err := i.GPG.runWith(ctx, invocation{interactive: true, stdin: secret, passphrase: &password},
+		"--batch", "--pinentry-mode", "loopback", "--passphrase-fd", "3",
+		"--symmetric", "--armor", "--cipher-algo", "AES256", "--output", "-")
+	if err != nil {
+		return nil, fmt.Errorf("encrypting the export: %w", err)
+	}
+	return encrypted, nil
 }
