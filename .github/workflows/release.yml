@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
@@ -51,7 +51,7 @@ jobs:
         run: git fetch --prune --unshallow --tags -f
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install GTK3 development libraries
@@ -108,7 +108,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install packaging tools
@@ -169,7 +169,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Build the source RPM
