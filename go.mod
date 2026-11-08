@@ -3,7 +3,7 @@ module github.com/wrouesnel/landhorse
 go 1.24.1
 
 require (
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/chigopher/pathlib v0.19.1
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gotk3/gotk3 v0.6.5-0.20251124190141-e7a9e823ca35
